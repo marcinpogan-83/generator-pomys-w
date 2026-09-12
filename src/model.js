@@ -170,6 +170,7 @@ export function build(cfgIn) {
     const engrave = [];
     const texts = [];
     const numW = 13;                                  // pas na numer przegrodki
+    const markW = 5;                                  // pas znacznikow zawiasow
     const slitLen = Math.max(10, Math.round(cellW * 0.55));
     let cellNo = 1;
     bands.forEach((b, bi) => {
@@ -183,15 +184,16 @@ export function build(cfgIn) {
         const cellX = t + c * (cellW + t);
         const yMid = yTop + b.h / 2;
         // numer po lewej, szczelina wgladu wysrodkowana w pozostalym polu
-        const slitX = cellX + numW + (cellW - numW - slitLen) / 2;
+        const slitX = cellX + markW + numW + (cellW - markW - numW - slitLen) / 2;
         cut.push(rectPath(slitX, yMid - slitW / 2, slitLen, slitW));
-        strokeNumber(cellNo, cellX + numW / 2 + 1, yMid - 5.5, 11)
+        strokeNumber(cellNo, cellX + markW / 2 + numW / 2, yMid - 5.5, 11)
           .forEach(s => engrave.push(s));
         cellNo++;
       }
     });
-    // znaczniki otworow pod zawiasy (lewa krawedz) i skobel (prawa)
-    for (const y of [H * 0.2, H * 0.8]) engrave.push(rectPath(4, y - 12, 10, 24));
+    // Znaczniki otworow pod zawiasy (lewa krawedz) i skobel (prawa). Zawiasy
+    // trzymaja sie pasa markW przy krawedzi, zeby nie wchodzic na numery.
+    for (const y of [H * 0.2, H * 0.8]) engrave.push(rectPath(0.5, y - 12, markW, 24));
     engrave.push(rectPath(W - 26, H / 2 - 15, 22, 30));
     add('Drzwi', 1, W, H, cut, engrave, texts);
   }
