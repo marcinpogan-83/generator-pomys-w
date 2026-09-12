@@ -5,7 +5,7 @@
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,11 +21,13 @@ function step(name, cmd, args, { optional = false, env } = {}) {
 }
 
 step('build', 'node', ['tools/build.mjs']);
-step('testy jednostkowe', 'node', ['--test', 'tests/unit/geometry.test.js', 'tests/unit/model.test.js',
-  'tests/unit/nest.test.js', 'tests/unit/export.test.js', 'tests/unit/build.test.js']);
+const unitTests = readdirSync(resolve(root, 'tests/unit'))
+  .filter(f => f.endsWith('.test.js')).sort().map(f => `tests/unit/${f}`);
+step('testy jednostkowe', 'node', ['--test', ...unitTests]);
 
 const exportDir = mkdtempSync(resolve(tmpdir(), 'organizer-'));
-step('eksport referencyjny', 'node', ['tools/export-cli.mjs', '--out', exportDir]);
+step('eksport referencyjny (SECURE)', 'node', ['tools/export-cli.mjs', '--out', resolve(exportDir, 'secure')]);
+step('eksport referencyjny (schodkowy)', 'node', ['tools/export-cli.mjs', '--model', 'stepped', '--out', resolve(exportDir, 'stepped')]);
 step('walidacja DXF (ezdxf)', 'python3', ['-m', 'pytest', 'tests/python', '-q'], { optional: true });
 step('testy wizualne (playwright)', 'node', ['tools/run-visual.mjs'], { optional: true });
 

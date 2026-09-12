@@ -21,7 +21,8 @@ test('stripModuleSyntax usuwa import/export, zostawia kod', () => {
 
 test('bundle sklada poprawny skladniowo skrypt ze wszystkich modulow', () => {
   const html = bundle();
-  for (const f of ['geometry.js', 'model.js', 'nest.js', 'layout.js', 'svg.js', 'dxf.js', 'app.js']) {
+  for (const f of ['geometry.js', 'model.js', 'model-stepped.js', 'models.js', 'nest.js',
+                   'layout.js', 'svg.js', 'dxf.js', 'lbrn.js', 'app.js']) {
     assert.ok(html.includes(`// ---- src/${f}`), `brak modulu ${f}`);
   }
   const js = html.match(/<script>\n([\s\S]*?)\n<\/script>/)[1];
@@ -42,4 +43,17 @@ test('plik HTML ma komplet metadanych i kontener aplikacji', () => {
 
 test('bundle jest deterministyczny', () => {
   assert.equal(bundle(), bundle());
+});
+
+test('bundle wykonuje sie bez bledow poza przegladarka', () => {
+  // Laczenie modulow w jedna przestrzen nazw potrafi zgubic nazwe (np. alias
+  // importu). Uruchomienie skryptu w vm wylapuje to bez odpalania przegladarki.
+  const js = bundle().match(/<script>\n([\s\S]*?)\n<\/script>/)[1];
+  const ctx = vm.createContext({ console });
+  assert.doesNotThrow(() => new vm.Script(js).runInContext(ctx));
+});
+
+test('alias w imporcie zatrzymuje build zamiast psuc plik', () => {
+  assert.throws(() => stripModuleSyntax("import { a as b } from './a.js';", 'src/x.js'),
+                /alias w imporcie/);
 });

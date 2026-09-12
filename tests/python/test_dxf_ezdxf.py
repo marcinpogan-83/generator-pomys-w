@@ -10,7 +10,7 @@ import ezdxf
 import pytest
 from ezdxf.audit import Auditor
 
-from conftest import EXPORTS, ROOT, run_export
+from conftest import EXPORTS, STEPPED_EXPORTS, ROOT, run_export
 from validate_dxf import validate_export, validate_sheet
 
 
@@ -170,9 +170,30 @@ def test_walidator_wykrywa_brak_jednostek(tmp_path, exports):
     assert any("INSUNITS" in e for e in errors(validate_sheet(path, manifest, sheet)))
 
 
+@pytest.mark.parametrize("name", STEPPED_EXPORTS)
+def test_model_schodkowy_ma_komplet_czesci(exports, name):
+    manifest = json.loads((exports[name] / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["model"] == "stepped"
+    nazwy = [p["name"] for p in manifest["parts"]]
+    assert "Bok" in nazwy and "Podstawa" in nazwy and "Panel czolowy" in nazwy
+    poprzeczne = [n for n in nazwy if n.startswith("Przegroda poprzeczna")]
+    assert len(poprzeczne) == manifest["config"]["pockets"] + 1
+    # numery kieszeni sa grawerowane wektorowo, wiec w DXF sa polilinie ENGRAVE
+    engrave = sum(s["counts"]["polylinesEngrave"] for s in manifest["sheets"])
+    assert engrave > manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
+
+
 def test_swiezy_eksport_z_linii_polecen_jest_poprawny(tmp_path):
     out = tmp_path / "cli"
     manifest = run_export(out, ["--sku", "S-36", "--sheet", "1220x610"])
     assert manifest["stats"]["sheetCount"] >= 1
     assert errors(validate_export(out)) == []
     assert (ROOT / "tools" / "validate_dxf.py").exists()
+
+
+def test_eksport_schodkowy_z_linii_polecen(tmp_path):
+    out = tmp_path / "cli-stepped"
+    manifest = run_export(out, ["--model", "stepped", "--sku", "K-32", "--sheet", "1220x610"])
+    assert manifest["model"] == "stepped"
+    assert manifest["stats"]["cells"] == 32
+    assert errors(validate_export(out)) == []

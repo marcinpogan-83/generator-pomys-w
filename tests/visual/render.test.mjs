@@ -163,22 +163,69 @@ test('bledna konfiguracja jest pokazana uzytkownikowi', { skip }, async () => {
   });
 });
 
+test('przelaczenie typu organizera przebudowuje model i rysunek', { skip }, async () => {
+  await withPage(async (page, problems) => {
+    const before = await page.evaluate(() => ({
+      type: window.ORGANIZER.state.modelType,
+      cells: window.ORGANIZER.model.cells,
+      parts: window.ORGANIZER.model.parts.map(p => p.name)
+    }));
+    await page.selectOption('[data-k="modelType"]', 'stepped');
+    await page.waitForSelector('#preview svg');
+    const after = await page.evaluate(() => ({
+      type: window.ORGANIZER.state.modelType,
+      cells: window.ORGANIZER.model.cells,
+      parts: window.ORGANIZER.model.parts.map(p => p.name),
+      issues: window.ORGANIZER.issues,
+      cut: document.querySelectorAll('#CUT path').length,
+      eng: document.querySelectorAll('#ENGRAVE path').length
+    }));
+    assert.equal(before.type, 'secure');
+    assert.equal(after.type, 'stepped');
+    assert.ok(after.parts.some(n => n.startsWith('Przegroda poprzeczna')), 'brak przegrod poprzecznych');
+    assert.ok(after.parts.includes('Panel czolowy'));
+    assert.notDeepEqual(after.parts, before.parts);
+    assert.deepEqual(after.issues, []);
+    assert.ok(after.cut > 0 && after.eng > 0, 'rysunek musi miec ciecie i grawer');
+    assert.deepEqual(problems, []);
+    const rows = await page.$$eval('tbody tr td:first-child', els => els.map(e => e.textContent));
+    assert.deepEqual(rows, after.parts);
+  });
+});
+
+test('formularz pokazuje pola wlasciwe dla wybranego modelu', { skip }, async () => {
+  await withPage(async (page) => {
+    const keys = () => page.$$eval('[data-scope="model"]', els => els.map(e => e.dataset.k));
+    const secure = await keys();
+    assert.ok(secure.includes('cellH') && secure.includes('slitW'));
+    await page.selectOption('[data-k="modelType"]', 'stepped');
+    await page.waitForSelector('#preview svg');
+    const stepped = await keys();
+    assert.ok(stepped.includes('pockets') && stepped.includes('pocketW') && stepped.includes('drop'));
+    assert.ok(!stepped.includes('slitW'), 'pola modelu SECURE nie moga zostac po przelaczeniu');
+  });
+});
+
 test('raster podgladu zgadza sie z wzorcem', { skip }, async () => {
   await withPage(async (page) => {
     const signatures = {};
-    const sheets = await page.evaluate(() => window.ORGANIZER.nested.sheets.length);
-    for (let i = 0; i < sheets; i++) {
-      await page.click(`[data-sheet="${i}"]`);
-      const svg = await page.evaluate(() => {
-        const o = window.ORGANIZER;
-        return o.sheetSvg(o.nested.sheets[o.state.sheetIdx], o.model.parts, o.nestOpts());
-      });
-      signatures[`sheet-${i + 1}`] = await page.evaluate(
-        ([fn, s, r, g]) => new Function('return ' + fn)()(s, r, g),
-        [SIGNATURE_FN, svg, RASTER, GRID]);
-      await page.locator('#preview').screenshot({ path: resolve(ARTIFACTS, `sheet-${i + 1}.png`) });
+    for (const type of ['secure', 'stepped']) {
+      await page.selectOption('[data-k="modelType"]', type);
+      await page.waitForSelector('#preview svg');
+      const sheets = await page.evaluate(() => window.ORGANIZER.nested.sheets.length);
+      for (let i = 0; i < sheets; i++) {
+        await page.click(`[data-sheet="${i}"]`);
+        const svg = await page.evaluate(() => {
+          const o = window.ORGANIZER;
+          return o.sheetSvg(o.nested.sheets[o.state.sheetIdx], o.model.parts, o.nestOpts());
+        });
+        signatures[`${type}-sheet-${i + 1}`] = await page.evaluate(
+          ([fn, s, r, g]) => new Function('return ' + fn)()(s, r, g),
+          [SIGNATURE_FN, svg, RASTER, GRID]);
+        await page.locator('#preview').screenshot({ path: resolve(ARTIFACTS, `${type}-sheet-${i + 1}.png`) });
+      }
+      await page.screenshot({ path: resolve(ARTIFACTS, `strona-${type}.png`), fullPage: true });
     }
-    await page.screenshot({ path: resolve(ARTIFACTS, 'strona.png'), fullPage: true });
     writeFileSync(resolve(ARTIFACTS, 'signature.json'), JSON.stringify({ grid: GRID, raster: RASTER, signatures }, null, 2));
 
     if (UPDATE || !existsSync(BASELINE)) {

@@ -5,6 +5,19 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
 ## Nieopublikowane
 
 ### Dodane
+* **Drugi typ organizera: schodkowy (kieszenie pochyłe)** — boki ze schodkowo
+  opadającą krawędzią, identyczne przegrody poprzeczne w pionowych wcięciach,
+  przegrody podłużne na krzyżowy zakład, podstawa, plecy i panel czołowy
+  z grawerem klasy; numery kieszeni grawerowane wektorowo (`src/model-stepped.js`).
+* Rejestr modeli (`src/models.js`) i formularz budowany z opisu pól — wybór typu
+  organizera w interfejsie oraz `--model` w eksporcie z linii poleceń.
+* **Eksport do LightBurn (.lbrn2)** (`src/lbrn.js`): warstwy CUT/ENGRAVE,
+  ścieżki `VertList`/`PrimList`, teksty jako encje `Text`; przycisk w UI,
+  plik obok SVG i DXF w eksporcie CLI.
+* Walidacja plików LightBurn w `tools/validate_dxf.py` + testy `tests/python/test_lbrn.py`
+  (razem z testami negatywnymi walidatora).
+* Testy modelu schodkowego, rejestru modeli i eksportu LightBurn; testy wizualne
+  obejmują przełączanie typu organizera i wzorzec rasteru dla obu modeli.
 * Podział generatora na moduły ESM (`src/`) i build jednoplikowy (`tools/build.mjs`).
 * Walidacja konfiguracji (`validateConfig`) pokazywana w interfejsie.
 * Kontrola poprawności rozkroju (`validatePlacement`): kolizje, margines, odstęp.
@@ -18,6 +31,10 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
 * CI (GitHub Actions) uruchamiające wszystkie trzy zestawy testów.
 
 ### Zmienione
+* Bundler zatrzymuje build przy aliasie w imporcie (`import { x as y }`), bo
+  łączy moduły w jedną przestrzeń nazw; test uruchamia zbudowany skrypt w `vm`.
+* Plik dystrybucyjny nazywa się `dist/organizer-generator.html` (generator nie
+  dotyczy już tylko modelu SECURE).
 * Rozkrój: MaxRects z pełnym podziałem wolnych prostokątów, 30 kombinacji
   sortowania i heurystyk; nigdy nie gorszy od poprzedniego, w 13/296 losowych
   przypadkach mniej arkuszy, w 256/296 ciaśniej upakowany ostatni arkusz.

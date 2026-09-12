@@ -1,18 +1,22 @@
 // Interfejs generatora (przegladarka). Model i rozkroj pochodza z modulow
 // src/*.js - ten plik odpowiada tylko za UI i pobieranie plikow.
 
-import { SKU, DEFAULTS, build, netArea, validateConfig } from './model.js';
+import { MODELS, DEFAULT_MODEL, modelDef, modelDefaults, buildModel, validateModel, netArea } from './models.js';
 import { nest, validatePlacement, SORTS, HEURISTICS } from './nest.js';
 import { sheetSvg, escapeXml } from './svg.js';
 import { sheetDxf, sheetManifest } from './dxf.js';
+import { sheetLbrn } from './lbrn.js';
 
 export const state = {
-  ...DEFAULTS,
+  modelType: DEFAULT_MODEL,
+  cfg: Object.fromEntries(Object.keys(MODELS).map(k => [k, modelDefaults(k)])),
   sheetW: 760, sheetH: 760, margin: 6, gap: 4, allowRot: true,
   sheetPrice: 15.07, showLabels: true, sheetIdx: 0
 };
 
 let model = null, nested = null, issues = [];
+
+export function activeCfg() { return state.cfg[state.modelType]; }
 
 export function nestOpts() {
   return {
@@ -22,9 +26,9 @@ export function nestOpts() {
 }
 
 export function recompute() {
-  model = build(state);
+  model = buildModel(state.modelType, activeCfg());
   nested = nest(model.parts, nestOpts());
-  issues = [...validateConfig(state), ...validatePlacement(nested, nestOpts())];
+  issues = [...validateModel(state.modelType, activeCfg()), ...validatePlacement(nested, nestOpts())];
   if (state.sheetIdx >= nested.sheets.length) state.sheetIdx = 0;
   return { model, nested, issues };
 }
@@ -44,11 +48,49 @@ function issueHtml() {
   const warn = issues.filter(i => i.level !== 'error');
   const box = (cls, list, title) => list.length
     ? `<div class="${cls}"><b>${title}</b><ul>${list.map(i => `<li>${escapeXml(i.msg)}</li>`).join('')}</ul></div>` : '';
-  return box('err', err, 'Bledy konfiguracji') + box('warn', warn, 'Ostrzezenia');
+  return box('err', err, 'Błędy konfiguracji') + box('warn', warn, 'Ostrzeżenia');
+}
+
+function fieldHtml(f, cfg, skuLocked) {
+  const v = cfg[f.k];
+  const dis = f.lockedBySku && skuLocked ? 'disabled' : '';
+  const attr = `data-k="${f.k}" data-scope="model"`;
+  if (f.type === 'checkbox') {
+    const id = `f_${f.k}`;
+    return `<div class="chk"><input type="checkbox" id="${id}" ${attr} ${v ? 'checked' : ''}><label for="${id}" style="margin:0">${f.label}</label></div>`;
+  }
+  if (f.type === 'select') {
+    return `<div><label>${f.label}</label><select ${attr}>${f.options.map(o =>
+      `<option value="${escapeXml(o.value)}" ${v === o.value ? 'selected' : ''}>${escapeXml(o.label)}</option>`).join('')}</select></div>`;
+  }
+  if (f.type === 'text') {
+    return `<div><label>${f.label}</label><input type="text" ${attr} value="${escapeXml(v == null ? '' : v)}"></div>`;
+  }
+  const extra = [f.step ? `step="${f.step}"` : '', f.min != null ? `min="${f.min}"` : '', f.max != null ? `max="${f.max}"` : ''].join(' ');
+  return `<div><label>${f.label}</label><input type="number" ${attr} ${extra} value="${v}" ${dis}></div>`;
+}
+
+function groupHtml(group, cfg, skuLocked) {
+  const rows = [];
+  let pair = [];
+  for (const f of group.fields) {
+    if (f.half) {
+      pair.push(fieldHtml(f, cfg, skuLocked));
+      if (pair.length === 2) { rows.push(`<div class="row2">${pair.join('')}</div>`); pair = []; }
+    } else {
+      if (pair.length) { rows.push(`<div class="row2">${pair.join('')}</div>`); pair = []; }
+      rows.push(fieldHtml(f, cfg, skuLocked));
+    }
+  }
+  if (pair.length) rows.push(`<div class="row2">${pair.join('')}</div>`);
+  return `<fieldset><legend>${group.legend}</legend>${rows.join('')}</fieldset>`;
 }
 
 export function render() {
   recompute();
+  const def = modelDef(state.modelType);
+  const cfg = activeCfg();
+  const skuLocked = !!(def.sku && def.sku[cfg.sku]);
   const el = document.getElementById('app');
   const sheets = nested.sheets;
   const cost = sheets.length * state.sheetPrice;
@@ -97,80 +139,47 @@ export function render() {
     .warn { background: #fdf2e0; border-left: 3px solid #ba7517; color: #6b4410; }
     .err { background: #fdeaea; border-left: 3px solid #b3261e; color: #7a1c16; }
     .warn ul, .err ul { margin: 4px 0 0; padding-left: 18px; }
+    .hint { font-size: 11px; color: #78736a; margin: 6px 0 0; }
   </style>
   <div class="wrap">
     <div class="panel">
-      <h1>Organizer SECURE</h1>
-      <p class="sub">Generator plikow do ciecia — laser.cat</p>
+      <h1>Organizer — generator</h1>
+      <p class="sub">Pliki do cięcia laserem — SVG, DXF, LightBurn</p>
 
-      <fieldset><legend>Rozmiar</legend>
-        <label>Wariant</label>
-        <select data-k="sku">${Object.keys(SKU).map(k =>
-          `<option value="${k}" ${state.sku === k ? 'selected' : ''}>${k}${SKU[k] ? ` — ${SKU[k].cols * SKU[k].rows} miejsc` : ''}</option>`).join('')}</select>
-        <div class="row2">
-          <div><label>Kolumny</label><input type="number" data-k="cols" value="${model.cfg.cols}" min="1" max="6" ${SKU[state.sku] ? 'disabled' : ''}></div>
-          <div><label>Rzędy</label><input type="number" data-k="rows" value="${model.cfg.rows}" min="1" max="20" ${SKU[state.sku] ? 'disabled' : ''}></div>
-        </div>
+      <fieldset><legend>Typ organizera</legend>
+        <select data-k="modelType" data-scope="app">${Object.values(MODELS).map(m =>
+          `<option value="${m.id}" ${state.modelType === m.id ? 'selected' : ''}>${escapeXml(m.label)}</option>`).join('')}</select>
+        <p class="hint">${escapeXml(def.hint)}</p>
       </fieldset>
 
-      <fieldset><legend>Materiał i pasowanie</legend>
-        <div class="row2">
-          <div><label>Grubość zmierzona (mm)</label><input type="number" step="0.05" data-k="t" value="${state.t}"></div>
-          <div><label>Kompensacja szczeliny</label><input type="number" step="0.01" data-k="fit" value="${state.fit}"></div>
-        </div>
-        <div class="row2">
-          <div><label>Szerokość pióra (mm)</label><input type="number" step="1" data-k="tabW" value="${state.tabW}"></div>
-          <div><label>Liczba piór</label><input type="number" step="1" min="2" max="6" data-k="tabN" value="${state.tabN}"></div>
-        </div>
-      </fieldset>
-
-      <fieldset><legend>Przegródka</legend>
-        <div class="row2">
-          <div><label>Szerokość (mm)</label><input type="number" data-k="cellW" value="${state.cellW}"></div>
-          <div><label>Wysokość (mm)</label><input type="number" data-k="cellH" value="${state.cellH}"></div>
-        </div>
-        <div class="row2">
-          <div><label>Głębokość (mm)</label><input type="number" data-k="depth" value="${state.depth}"></div>
-          <div><label>Szczelina wglądu (mm)</label><input type="number" data-k="slitW" value="${state.slitW}"></div>
-        </div>
-      </fieldset>
-
-      <fieldset><legend>Opcje konstrukcyjne</legend>
-        <div class="chk"><input type="checkbox" id="uh" data-k="useHeader" ${state.useHeader ? 'checked' : ''}><label for="uh" style="margin:0">Pasek nagłówkowy z grawerem</label></div>
-        <div class="chk"><input type="checkbox" id="sb" data-k="solidBack" ${state.solidBack ? 'checked' : ''}><label for="sb" style="margin:0">Pełne plecy (wersja biurkowa)</label></div>
-        <div class="chk"><input type="checkbox" id="ss" data-k="solidStiffener" ${state.solidStiffener ? 'checked' : ''}><label for="ss" style="margin:0">Pełna ramka drzwi</label></div>
-      </fieldset>
-
-      <fieldset><legend>Grawer</legend>
-        <label>Nazwa szkoły</label><input data-k="schoolName" value="${escapeXml(state.schoolName)}">
-        <label>Klasa</label><input data-k="className" value="${escapeXml(state.className)}">
-      </fieldset>
+      ${def.groups.map(g => groupHtml(g, cfg, skuLocked)).join('')}
 
       <fieldset><legend>Arkusz</legend>
         <div class="row2">
-          <div><label>Szerokość (mm)</label><input type="number" data-k="sheetW" value="${state.sheetW}"></div>
-          <div><label>Wysokość (mm)</label><input type="number" data-k="sheetH" value="${state.sheetH}"></div>
+          <div><label>Szerokość (mm)</label><input type="number" data-k="sheetW" data-scope="app" value="${state.sheetW}"></div>
+          <div><label>Wysokość (mm)</label><input type="number" data-k="sheetH" data-scope="app" value="${state.sheetH}"></div>
         </div>
         <div class="row2">
-          <div><label>Margines</label><input type="number" data-k="margin" value="${state.margin}"></div>
-          <div><label>Odstęp części</label><input type="number" data-k="gap" value="${state.gap}"></div>
+          <div><label>Margines</label><input type="number" data-k="margin" data-scope="app" value="${state.margin}"></div>
+          <div><label>Odstęp części</label><input type="number" data-k="gap" data-scope="app" value="${state.gap}"></div>
         </div>
-        <label>Cena arkusza (zł)</label><input type="number" step="0.01" data-k="sheetPrice" value="${state.sheetPrice}">
-        <div class="chk"><input type="checkbox" id="ar" data-k="allowRot" ${state.allowRot ? 'checked' : ''}><label for="ar" style="margin:0">Pozwól obracać części o 90°</label></div>
+        <label>Cena arkusza (zł)</label><input type="number" step="0.01" data-k="sheetPrice" data-scope="app" value="${state.sheetPrice}">
+        <div class="chk"><input type="checkbox" id="ar" data-k="allowRot" data-scope="app" ${state.allowRot ? 'checked' : ''}><label for="ar" style="margin:0">Pozwól obracać części o 90°</label></div>
       </fieldset>
 
       <div class="btns">
         <button id="dlsvg">Pobierz SVG</button>
         <button id="dldxf" class="ghost">Pobierz DXF</button>
+        <button id="dllbrn" class="ghost">Pobierz LightBurn</button>
         <button id="dlall" class="ghost">Wszystkie arkusze</button>
       </div>
     </div>
 
     <div class="stage">
       <div class="stats">
-        <div class="stat"><b>${model.cells}</b><span>miejsc na telefony</span></div>
+        <div class="stat"><b>${model.cells}</b><span>${escapeXml(def.countLabel)}</span></div>
         <div class="stat"><b>${model.W.toFixed(0)} × ${model.H.toFixed(0)}</b><span>korpus, mm</span></div>
-        <div class="stat"><b>${(model.D + 2 * state.t).toFixed(0)}</b><span>głębokość z drzwiami, mm</span></div>
+        <div class="stat"><b>${model.D.toFixed(0)}</b><span>głębokość, mm</span></div>
         <div class="stat"><b>${netArea(model).toFixed(3)}</b><span>materiał netto, m²</span></div>
         <div class="stat"><b>${sheets.length}</b><span>arkuszy ${state.sheetW}×${state.sheetH}</span></div>
         <div class="stat"><b>${(nested.stats.utilization * 100).toFixed(1)}%</b><span>wykorzystanie arkusza</span></div>
@@ -194,7 +203,7 @@ export function render() {
       </table>
 
       <p class="note">Rozkrój: MaxRects, wybrana strategia <b>${nested.strategy.sort} / ${nested.strategy.heuristic}</b> spośród ${SORTS.length * HEURISTICS.length} kombinacji sortowania i heurystyk. Wersja generatora: ${typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : 'dev'}.</p>
-      <p class="note">Warstwa CUT tnie, ENGRAVE grawer. Numery przegródek są wektorem kreskowym — wchodzą do LightBurn bez konwersji czcionki. Nazwa szkoły idzie jako tekst: jeśli laser jej nie zaimportuje, zamień na krzywe w Inkscape.</p>
+      <p class="note">Warstwa CUT tnie, ENGRAVE grawer. Numery są wektorem kreskowym — wchodzą do LightBurn bez konwersji czcionki. Nazwa szkoły idzie jako tekst: jeśli laser jej nie zaimportuje, zamień na krzywe w Inkscape.</p>
       <p class="note">Przed pierwszym cięciem serii zmierz suwmiarką realną grubość partii sklejki i wpisz ją w pole „grubość zmierzona”. Przy 3&nbsp;mm brzozie różnica 0,3&nbsp;mm decyduje, czy pióro wchodzi na wcisk, czy konstrukcja się rozlatuje.</p>
     </div>
   </div>`;
@@ -203,10 +212,11 @@ export function render() {
     const ev = inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input';
     inp.addEventListener(ev, () => {
       const k = inp.dataset.k;
-      if (inp.type === 'checkbox') state[k] = inp.checked;
-      else if (inp.type === 'number') state[k] = parseFloat(inp.value) || 0;
-      else state[k] = inp.value;
-      if (k === 'sku' && SKU[state.sku]) { state.cols = SKU[state.sku].cols; state.rows = SKU[state.sku].rows; }
+      const target = inp.dataset.scope === 'model' ? activeCfg() : state;
+      if (inp.type === 'checkbox') target[k] = inp.checked;
+      else if (inp.type === 'number') target[k] = parseFloat(inp.value) || 0;
+      else target[k] = inp.value;
+      if (inp.dataset.scope === 'app' && k === 'modelType') state.sheetIdx = 0;
       const pos = inp.selectionStart;
       render();
       const again = document.querySelector(`[data-k="${k}"]`);
@@ -220,18 +230,22 @@ export function render() {
   const tgl = document.getElementById('tgl');
   if (tgl) tgl.addEventListener('click', () => { state.showLabels = !state.showLabels; render(); });
 
-  const base = `organizer-${state.sku}-${model.cells}`;
+  const base = `organizer-${state.modelType}-${cfg.sku || 'wlasny'}-${model.cells}`;
+  const svgOf = (s) => sheetSvg(s, model.parts, nestOpts());
+  const dxfOf = (s) => sheetDxf(s, model.parts, nestOpts());
+  const lbrnOf = (s) => sheetLbrn(s, model.parts, nestOpts());
   document.getElementById('dlsvg').addEventListener('click', () =>
-    download(`${base}-ark${state.sheetIdx + 1}.svg`,
-      sheetSvg(sheets[state.sheetIdx], model.parts, nestOpts()), 'image/svg+xml'));
+    download(`${base}-ark${state.sheetIdx + 1}.svg`, svgOf(sheets[state.sheetIdx]), 'image/svg+xml'));
   document.getElementById('dldxf').addEventListener('click', () =>
-    download(`${base}-ark${state.sheetIdx + 1}.dxf`,
-      sheetDxf(sheets[state.sheetIdx], model.parts, nestOpts()), 'application/dxf'));
+    download(`${base}-ark${state.sheetIdx + 1}.dxf`, dxfOf(sheets[state.sheetIdx]), 'application/dxf'));
+  document.getElementById('dllbrn').addEventListener('click', () =>
+    download(`${base}-ark${state.sheetIdx + 1}.lbrn2`, lbrnOf(sheets[state.sheetIdx]), 'application/xml'));
   document.getElementById('dlall').addEventListener('click', () => {
     sheets.forEach((s, i) => setTimeout(() => {
-      download(`${base}-ark${i + 1}.svg`, sheetSvg(s, model.parts, nestOpts()), 'image/svg+xml');
-      download(`${base}-ark${i + 1}.dxf`, sheetDxf(s, model.parts, nestOpts()), 'application/dxf');
-    }, i * 400));
+      download(`${base}-ark${i + 1}.svg`, svgOf(s), 'image/svg+xml');
+      download(`${base}-ark${i + 1}.dxf`, dxfOf(s), 'application/dxf');
+      download(`${base}-ark${i + 1}.lbrn2`, lbrnOf(s), 'application/xml');
+    }, i * 500));
   });
 }
 
@@ -240,8 +254,8 @@ export function boot() {
   render();
   if (typeof window !== 'undefined') {
     window.ORGANIZER = {
-      state, render, recompute, nestOpts,
-      build, nest, sheetSvg, sheetDxf, sheetManifest,
+      state, render, recompute, nestOpts, activeCfg,
+      MODELS, buildModel, nest, sheetSvg, sheetDxf, sheetLbrn, sheetManifest,
       get model() { return model; },
       get nested() { return nested; },
       get issues() { return issues; }

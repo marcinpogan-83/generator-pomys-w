@@ -17,6 +17,9 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+import re
+import xml.etree.ElementTree as ET
+
 import ezdxf
 from ezdxf.audit import Auditor
 
@@ -180,6 +183,87 @@ def validate_sheet(dxf_path: Path, spec: dict, sheet: dict) -> list[Problem]:
     return problems
 
 
+LBRN_LAYERS = {"0": "CUT", "1": "ENGRAVE"}
+
+
+def validate_lbrn(lbrn_path: Path, spec: dict, sheet: dict) -> list[Problem]:
+    """Projekt LightBurn musi byc poprawnym XML-em zgodnym z manifestem."""
+    where = lbrn_path.name
+    problems: list[Problem] = []
+    try:
+        root = ET.parse(lbrn_path).getroot()
+    except ET.ParseError as exc:
+        return [Problem("error", where, f"niepoprawny XML: {exc}")]
+
+    if root.tag != "LightBurnProject":
+        problems.append(Problem("error", where, f"nieoczekiwany element glowny: {root.tag}"))
+    if not root.get("FormatVersion"):
+        problems.append(Problem("error", where, "brak atrybutu FormatVersion"))
+
+    layers = {}
+    for cs in root.findall("CutSetting"):
+        idx = cs.find("index")
+        name = cs.find("name")
+        if idx is None or name is None:
+            problems.append(Problem("error", where, "warstwa bez indeksu albo nazwy"))
+            continue
+        layers[idx.get("Value")] = name.get("Value")
+    for idx, name in LBRN_LAYERS.items():
+        if layers.get(idx) != name:
+            problems.append(Problem("error", where, f"warstwa {idx} to '{layers.get(idx)}', oczekiwano '{name}'"))
+
+    sheet_w = float(spec["nest"]["sheetW"])
+    sheet_h = float(spec["nest"]["sheetH"])
+    margin = float(spec["nest"].get("margin", 0))
+
+    counts = {"cut": 0, "engrave": 0, "texts": 0}
+    texts: list[str] = []
+    for shape in root.findall("Shape"):
+        cut_index = shape.get("CutIndex")
+        if cut_index not in LBRN_LAYERS:
+            problems.append(Problem("error", where, f"ksztalt na nieznanej warstwie {cut_index}"))
+            continue
+        if shape.get("Type") == "Text":
+            counts["texts"] += 1
+            texts.append(shape.get("Str", ""))
+            if cut_index != "1":
+                problems.append(Problem("error", where, "tekst poza warstwa ENGRAVE"))
+            continue
+        if shape.get("Type") != "Path":
+            problems.append(Problem("error", where, f"nieoczekiwany typ ksztaltu {shape.get('Type')}"))
+            continue
+        counts["cut" if cut_index == "0" else "engrave"] += 1
+        verts = re.findall(r"V([-\d.eE]+) ([-\d.eE]+)", shape.findtext("VertList") or "")
+        prims = re.findall(r"L(\d+) (\d+)", shape.findtext("PrimList") or "")
+        if len(verts) < 2:
+            problems.append(Problem("error", where, "sciezka z mniej niz dwoma punktami"))
+            continue
+        if not prims:
+            problems.append(Problem("error", where, "sciezka bez listy odcinkow (PrimList)"))
+        for a, b in prims:
+            if int(a) >= len(verts) or int(b) >= len(verts):
+                problems.append(Problem("error", where, "PrimList wskazuje nieistniejacy wierzcholek"))
+                break
+        closed = any(int(a) == len(verts) - 1 and int(b) == 0 for a, b in prims)
+        if len(prims) != (len(verts) if closed else len(verts) - 1):
+            problems.append(Problem("error", where, "liczba odcinkow nie zgadza sie z liczba punktow"))
+        for x, y in ((float(a), float(b)) for a, b in verts):
+            if not (margin - TOL <= x <= sheet_w - margin + TOL and margin - TOL <= y <= sheet_h - margin + TOL):
+                problems.append(Problem("error", where, f"geometria poza polem roboczym ({x:.2f}, {y:.2f})"))
+                break
+
+    expected = sheet["counts"]
+    if counts["cut"] != expected["polylinesCut"]:
+        problems.append(Problem("error", where, f"sciezki CUT: {counts['cut']} != {expected['polylinesCut']}"))
+    if counts["engrave"] != expected["polylinesEngrave"]:
+        problems.append(Problem("error", where, f"sciezki ENGRAVE: {counts['engrave']} != {expected['polylinesEngrave']}"))
+    if counts["texts"] != expected["texts"]:
+        problems.append(Problem("error", where, f"teksty: {counts['texts']} != {expected['texts']}"))
+    if sorted(texts) != sorted(sheet.get("texts", [])):
+        problems.append(Problem("error", where, f"tresc tekstow: {sorted(texts)} != {sorted(sheet.get('texts', []))}"))
+    return problems
+
+
 def validate_export(out_dir: Path) -> list[Problem]:
     out_dir = Path(out_dir)
     manifest_path = out_dir / "manifest.json"
@@ -206,6 +290,12 @@ def validate_export(out_dir: Path) -> list[Problem]:
             problems.extend(compare_with_svg(svg_path, dxf_path, spec, sheet))
         else:
             problems.append(Problem("warn", sheet["svg"], "brak pliku SVG do porownania"))
+        if sheet.get("lbrn"):
+            lbrn_path = out_dir / sheet["lbrn"]
+            if lbrn_path.exists():
+                problems.extend(validate_lbrn(lbrn_path, spec, sheet))
+            else:
+                problems.append(Problem("error", sheet["lbrn"], "brak pliku LightBurn"))
     return problems
 
 
@@ -242,27 +332,38 @@ def compare_with_svg(svg_path: Path, dxf_path: Path, spec: dict, sheet: dict) ->
         return problems
 
     def prepared(pts, closed, flip):
-        norm = [(x, sheet_h - y if flip else y) for x, y in pts]
-        norm.sort(key=lambda q: (round(q[0], 2), round(q[1], 2)))
-        xs = [q[0] for q in norm]
-        ys = [q[1] for q in norm]
-        key = (closed, len(norm), round(min(xs), 1), round(min(ys), 1),
-               round(max(xs), 1), round(max(ys), 1))
-        return key, norm
+        norm = sorted(((x, sheet_h - y if flip else y) for x, y in pts),
+                      key=lambda q: (q[0], q[1]))
+        cx = sum(q[0] for q in norm) / len(norm)
+        cy = sum(q[1] for q in norm) / len(norm)
+        return {"closed": closed, "pts": norm, "c": (cx, cy)}
 
-    svg_prepared = sorted((prepared(p, c, True) for p, c in svg_shapes), key=lambda t: t[0])
-    dxf_prepared = sorted((prepared(p, c, False) for p, c in dxf_shapes), key=lambda t: t[0])
+    svg_prepared = [prepared(p, c, True) for p, c in svg_shapes]
+    dxf_prepared = [prepared(p, c, False) for p, c in dxf_shapes]
 
-    for (svg_key, svg_pts), (dxf_key, dxf_pts) in zip(svg_prepared, dxf_prepared):
-        if svg_key != dxf_key:
+    # Parowanie po najblizszym srodku ciezkosci - pliki opisuja te sama
+    # geometrie z inna precyzja zapisu, wiec porownujemy z tolerancja.
+    free = list(range(len(dxf_prepared)))
+    for a in svg_prepared:
+        best, best_d = None, None
+        for idx in free:
+            b = dxf_prepared[idx]
+            if b["closed"] != a["closed"] or len(b["pts"]) != len(a["pts"]):
+                continue
+            d = math.dist(a["c"], b["c"])
+            if best_d is None or d < best_d:
+                best, best_d = idx, d
+        if best is None:
             problems.append(Problem("error", where,
-                                    f"kontur SVG {svg_key} nie ma odpowiednika w DXF ({dxf_key})"))
-            break
-        worst = max((math.dist(a, b) for a, b in zip(svg_pts, dxf_pts)), default=0.0)
+                                    f"kontur SVG (zamkniety={a['closed']}, {len(a['pts'])} pkt) nie ma odpowiednika w DXF"))
+            return problems
+        b = dxf_prepared[best]
+        free.remove(best)
+        worst = max(math.dist(p, q) for p, q in zip(a["pts"], b["pts"]))
         if worst > TOL:
             problems.append(Problem("error", where,
                                     f"wierzcholki SVG i DXF rozjezdzaja sie o {worst:.3f} mm"))
-            break
+            return problems
 
     return problems
 

@@ -18,7 +18,13 @@ EXPORTS = {
     "jedna-kolumna": ["--set", "cols=1", "--set", "rows=6", "--set", "useHeader=false"],
     "szeroki-arkusz": ["--set", "cols=4", "--set", "rows=8", "--set", "cellW=150",
                        "--sheet", "1000x600", "--no-rot"],
+    "schodkowy": ["--model", "stepped"],
+    "schodkowy-K30": ["--model", "stepped", "--sku", "K-30"],
+    "schodkowy-waski": ["--model", "stepped", "--set", "cols=2", "--set", "pockets=12",
+                        "--sheet", "1000x600"],
 }
+
+STEPPED_EXPORTS = [name for name in EXPORTS if name.startswith("schodkowy")]
 
 
 def run_export(out_dir: Path, args: list[str]) -> dict:

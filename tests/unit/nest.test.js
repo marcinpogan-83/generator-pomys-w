@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from '../../src/model.js';
+import { buildModel, modelDefaults } from '../../src/models.js';
 import { nest, validatePlacement, SORTS, HEURISTICS } from '../../src/nest.js';
 import { legacyNest } from '../baseline/legacy-nest.js';
 
 const OPTS = { sheetW: 760, sheetH: 760, margin: 6, gap: 4, allowRot: true };
+
+const STEPPED = [
+  {},
+  { sku: 'K-30' },
+  { sku: 'K-32' },
+  { sku: 'wlasny', cols: 2, pockets: 12, cellW: 130 }
+].map(c => ({ ...modelDefaults('stepped'), ...c }));
 
 const CONFIGS = [
   {},
@@ -142,6 +150,20 @@ test('nowy rozkroj wygrywa takze na losowych konfiguracjach', () => {
   }
   assert.ok(checked > 30, 'za malo sprawdzonych przypadkow');
   assert.ok(better > 0, `nowy algorytm nie poprawil zadnego z ${checked} przypadkow`);
+});
+
+test('model schodkowy tez uklada sie bez kolizji', () => {
+  for (const cfg of STEPPED) {
+    const parts = buildModel('stepped', cfg).parts;
+    for (const [w, h] of SHEETS) {
+      const opts = { ...OPTS, sheetW: w, sheetH: h };
+      const res = nest(parts, opts);
+      assert.deepEqual(validatePlacement(res, opts), [],
+        `${JSON.stringify(cfg)} @ ${w}x${h}`);
+      const placed = res.sheets.reduce((a, s) => a + s.items.length, 0);
+      assert.equal(placed, parts.reduce((a, p) => a + p.qty, 0), 'zgubione czesci');
+    }
+  }
 });
 
 test('statystyki opisuja wynik', () => {

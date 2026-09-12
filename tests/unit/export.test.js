@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from '../../src/model.js';
+import { buildModel, modelDefaults } from '../../src/models.js';
 import { nest } from '../../src/nest.js';
 import { sheetSvg, shapeToPath, escapeXml } from '../../src/svg.js';
 import { sheetDxf, sheetManifest, DXF_VERSION } from '../../src/dxf.js';
@@ -146,6 +147,25 @@ test('DXF obroconej czesci obraca takze tekst', () => {
     const angle = Number(tagValue(e, 50));
     assert.ok(angle === 0 || Math.abs(angle - 270) < 1e-6, `kat tekstu ${angle}`);
     if (rotated) assert.ok(Math.abs(angle - 270) < 1e-6, 'tekst na obroconej czesci musi byc obrocony');
+  }
+});
+
+test('eksport modelu schodkowego jest spojny z manifestem', () => {
+  const model = buildModel('stepped', modelDefaults('stepped'));
+  const nested = nest(model.parts, OPTS);
+  for (const sheet of nested.sheets) {
+    const man = sheetManifest(sheet, model.parts, OPTS);
+    const svg = sheetSvg(sheet, model.parts, OPTS);
+    const cutGroup = svg.match(/<g id="CUT"[^>]*>(.*?)<\/g>/s)[1];
+    assert.equal((cutGroup.match(/<path /g) || []).length, man.counts.polylinesCut);
+    const ents = entities(sections(parseTags(sheetDxf(sheet, model.parts, OPTS))).ENTITIES);
+    assert.equal(ents.filter(e => e.type === 'POLYLINE' && layerOf(e) === 'CUT').length, man.counts.polylinesCut);
+    assert.equal(ents.filter(e => e.type === 'TEXT').length, man.counts.texts);
+    for (const e of ents) {
+      for (const v of e.vertices) {
+        assert.ok(v.x >= -1e-6 && v.x <= OPTS.sheetW + 1e-6 && v.y >= -1e-6 && v.y <= OPTS.sheetH + 1e-6);
+      }
+    }
   }
 });
 
