@@ -1,0 +1,609 @@
+<div id="app"></div>
+<script>
+// ---------------------------------------------------------------------------
+// GEOMETRIA
+// ---------------------------------------------------------------------------
+
+function rectPath(x, y, w, h) {
+  return [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+}
+
+// Buduje obrys prostokatnej plyty z czopami (pioro) na wybranych krawedziach.
+// edges: {top,right,bottom,left} -> null albo {n: liczba czopow, w: szerokosc}
+function panelOutline(w, h, t, edges) {
+  const pts = [];
+  const sides = [
+    { from: [0, 0], dir: [1, 0], nrm: [0, -1], len: w, spec: edges.top },
+    { from: [w, 0], dir: [0, 1], nrm: [1, 0], len: h, spec: edges.right },
+    { from: [w, h], dir: [-1, 0], nrm: [0, 1], len: w, spec: edges.bottom },
+    { from: [0, h], dir: [0, -1], nrm: [-1, 0], len: h, spec: edges.left }
+  ];
+  for (const s of sides) {
+    const [px, py] = s.from;
+    const [dx, dy] = s.dir;
+    const [nx, ny] = s.nrm;
+    pts.push([px, py]);
+    if (!s.spec || s.spec.n < 1) continue;
+    const n = s.spec.n, tw = s.spec.w;
+    const gap = (s.len - n * tw) / (n + 1);
+    if (gap <= 0) continue;
+    let d = 0;
+    for (let i = 0; i < n; i++) {
+      d += gap;
+      pts.push([px + dx * d, py + dy * d]);
+      pts.push([px + dx * d + nx * t, py + dy * d + ny * t]);
+      d += tw;
+      pts.push([px + dx * d + nx * t, py + dy * d + ny * t]);
+      pts.push([px + dx * d, py + dy * d]);
+    }
+  }
+  pts.push([0, 0]);
+  return pts;
+}
+
+// Pozycje czopow wzdluz krawedzi o dlugosci len -> [{start, w}]
+function tabSpans(len, n, tw) {
+  const gap = (len - n * tw) / (n + 1);
+  const out = [];
+  let d = 0;
+  for (let i = 0; i < n; i++) { d += gap; out.push({ start: d, w: tw }); d += tw; }
+  return out;
+}
+
+// Otwor kluczowy do zawieszenia na wkrecie
+function keyhole(cx, cy, dHead, dShank, drop) {
+  const r = dHead / 2, s = dShank / 2, pts = [];
+  for (let a = 0; a <= 360; a += 12) {
+    const rad = a * Math.PI / 180;
+    pts.push([cx + r * Math.cos(rad), cy + r * Math.sin(rad)]);
+  }
+  return [pts, rectPath(cx - s, cy, dShank, drop)];
+}
+
+// ---------------------------------------------------------------------------
+// FONT KRESKOWY (cyfry) - jednokreskowy, gotowy do grawerowania
+// ---------------------------------------------------------------------------
+
+const GLYPHS = {
+  '0': [[[1,3],[3,1],[7,1],[9,3],[9,13],[7,15],[3,15],[1,13],[1,3]]],
+  '1': [[[2,3],[5,1],[5,15]]],
+  '2': [[[1,4],[3,1],[7,1],[9,4],[9,6],[1,15],[9,15]]],
+  '3': [[[1,1],[9,1],[5,7]],[[5,7],[9,9],[9,13],[7,15],[3,15],[1,13]]],
+  '4': [[[7,15],[7,1],[1,10],[9,10]]],
+  '5': [[[9,1],[2,1],[1,7],[6,6],[9,9],[9,13],[7,15],[3,15],[1,13]]],
+  '6': [[[8,2],[5,1],[2,3],[1,7],[1,13],[3,15],[7,15],[9,13],[9,9],[7,7],[3,7],[1,9]]],
+  '7': [[[1,1],[9,1],[4,15]]],
+  '8': [[[5,7],[2,5],[2,3],[4,1],[6,1],[8,3],[8,5],[5,7],[2,9],[2,13],[4,15],[6,15],[8,13],[8,9],[5,7]]],
+  '9': [[[2,14],[5,15],[8,13],[9,9],[9,3],[7,1],[3,1],[1,3],[1,6],[3,8],[7,8],[9,6]]]
+};
+
+function strokeNumber(n, x, y, size) {
+  const s = size / 16, adv = 7 * s, out = [];
+  const str = String(n);
+  let cx = x - (str.length * adv) / 2;
+  for (const ch of str) {
+    const g = GLYPHS[ch];
+    if (g) for (const poly of g) out.push(poly.map(p => [cx + p[0] * s, y + p[1] * s]));
+    cx += adv;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// MODEL ORGANIZERA
+// ---------------------------------------------------------------------------
+
+function build(cfg) {
+  const { t, fit, cols, rows, cellW, cellH, depth, headerH, useHeader,
+          slitW, tabW, tabN, solidBack, solidStiffener, schoolName, className } = cfg;
+
+  const clear = 0.2;                   // luz na dlugosci czopa
+  const slotT = t - fit;               // grubosc gniazda (wpust) - pasowanie ciasne
+  const lapW  = t - fit;               // szerokosc polzakladki
+
+  // pasy poziome od gory: opcjonalny naglowek + R rzedow przegrodek
+  const bands = [];
+  if (useHeader) bands.push({ h: headerH, header: true });
+  for (let i = 0; i < rows; i++) bands.push({ h: cellH, header: false });
+
+  const IW = cols * cellW + (cols - 1) * t;
+  const IH = bands.reduce((a, b) => a + b.h, 0) + (bands.length - 1) * t;
+  const W = IW + 2 * t;
+  const H = IH + 2 * t;
+  const D = depth;
+
+  // y gornej krawedzi kazdej plyty poziomej (0..bands.length), wsp. plyty bocznej
+  const hy = [0];
+  bands.forEach(b => hy.push(hy[hy.length - 1] + t + b.h));
+
+  // srodek kazdego pionowego przedzialu, wsp. wewnetrzne (0 = lewe lico wewn.)
+  const divCx = [];
+  for (let j = 1; j < cols; j++) divCx.push(j * cellW + (j - 1) * t + t / 2);
+
+  const parts = [];
+  const add = (name, qty, w, h, cut, engrave) =>
+    parts.push({ name, qty, w, h, cut, engrave: engrave || [] });
+
+  // --- BOKI ------------------------------------------------------------------
+  // X = glebokosc, Y = wysokosc. Gniazda na czopy plyt poziomych.
+  {
+    const cut = [rectPath(0, 0, D, H)];
+    const spans = tabSpans(D, tabN, tabW);
+    for (const y of hy) {
+      for (const s of spans) {
+        cut.push(rectPath(s.start - clear / 2, y + fit / 2, s.w + clear, slotT));
+      }
+    }
+    add('Bok', 2, D, H, cut);
+  }
+
+  // --- PLYTY POZIOME ---------------------------------------------------------
+  // X = szerokosc (z czopami), Y = glebokosc.
+  const mkHoriz = (name, qty, kind) => {
+    const cut = [panelOutline(IW, D, t, {
+      top: null, bottom: null,
+      left: { n: tabN, w: tabW }, right: { n: tabN, w: tabW }
+    }).map(p => [p[0] + t, p[1]])];
+    for (const cx of divCx) {
+      const x = cx + t;
+      if (kind === 'cap') {
+        // gniazda przelotowe na czopy przegrody
+        for (const s of tabSpans(D, 2, 22)) {
+          cut.push(rectPath(x - slotT / 2, s.start - clear / 2, slotT, s.w + clear));
+        }
+      } else {
+        // polzakladka otwarta od przodu (y = 0)
+        cut.push([[x - lapW / 2, 0], [x + lapW / 2, 0],
+                  [x + lapW / 2, D / 2], [x - lapW / 2, D / 2], [x - lapW / 2, 0]]);
+      }
+    }
+    add(name, qty, IW + 2 * t, D, cut);
+  };
+  mkHoriz('Plyta gorna / dolna', 2, 'cap');
+  if (bands.length - 1 > 0) mkHoriz('Polka', bands.length - 1, 'shelf');
+
+  // --- PRZEGRODY PIONOWE -----------------------------------------------------
+  // X = glebokosc, Y = wysokosc wewnetrzna, czopy gora/dol.
+  if (cols > 1) {
+    const cut = [panelOutline(D, IH, t, {
+      top: { n: 2, w: 22 }, bottom: { n: 2, w: 22 }, left: null, right: null
+    }).map(p => [p[0], p[1] + t])];
+    for (let k = 1; k < bands.length; k++) {
+      const y = hy[k] - t;   // gorna krawedz polki k, wsp. wewnetrzne +t
+      cut.push([[D, y - lapW / 2 + t], [D / 2, y - lapW / 2 + t],
+                [D / 2, y + lapW / 2 + t], [D, y + lapW / 2 + t]]);
+    }
+    add('Przegroda pionowa', cols - 1, D, IH + 2 * t, cut);
+  }
+
+  // --- PLECY -----------------------------------------------------------------
+  if (solidBack) {
+    const cut = [rectPath(0, 0, W, H)];
+    const kx = [W * 0.25, W * 0.75];
+    for (const x of kx) for (const p of keyhole(x, 30, 9, 4.5, 14)) cut.push(p);
+    add('Plecy (pelne)', 1, W, H, cut);
+  } else {
+    const railH = 70;
+    const mk = (y0) => {
+      const cut = [rectPath(0, 0, W, railH)];
+      for (const x of [W * 0.25, W * 0.75]) for (const p of keyhole(x, 20, 9, 4.5, 14)) cut.push(p);
+      return cut;
+    };
+    add('Listwa tylna (z otworami kluczowymi)', 2, W, 70, mk(0));
+  }
+
+  // --- DRZWI -----------------------------------------------------------------
+  {
+    const cut = [rectPath(0, 0, W, H)];
+    const eng = [];
+    const slitLen = Math.round(cellW * 0.55);
+    let cellNo = 1;
+    bands.forEach((b, bi) => {
+      const yTop = hy[bi] + t;                 // gorna krawedz wnetrza pasa
+      if (b.header) {
+        eng.push({ text: schoolName, x: W / 2, y: yTop + b.h * 0.42, size: 9 });
+        eng.push({ text: className, x: W / 2, y: yTop + b.h * 0.78, size: 7 });
+        return;
+      }
+      for (let c = 0; c < cols; c++) {
+        const cellX = t + c * (cellW + t);
+        const yMid = yTop + b.h / 2;
+        cut.push(rectPath(cellX + (cellW - slitLen) / 2 + 14, yMid - slitW / 2, slitLen, slitW));
+        strokeNumber(cellNo, cellX + 16, yMid - 5.5, 11).forEach(p => eng.push({ poly: p }));
+        cellNo++;
+      }
+    });
+    // znaczniki otworow pod zawiasy (lewa krawedz) i skobel (prawa)
+    const hy2 = [H * 0.2, H * 0.8];
+    hy2.forEach(y => eng.push({ poly: rectPath(4, y - 12, 10, 24) }));
+    eng.push({ poly: rectPath(W - 26, H / 2 - 15, 22, 30) });
+    add('Drzwi', 1, W, H, cut, eng);
+  }
+
+  // --- WZMOCNIENIE DRZWI -----------------------------------------------------
+  if (solidStiffener) {
+    const m = 26;
+    add('Ramka wzmacniajaca drzwi', 1, W, H,
+        [rectPath(0, 0, W, H), rectPath(m, m, W - 2 * m, H - 2 * m)]);
+  } else {
+    add('Listwa wzmacniajaca (pion)', 2, 30, H, [rectPath(0, 0, 30, H)]);
+    add('Nakladka pod skobel', 2, 60, 50, [rectPath(0, 0, 60, 50)]);
+  }
+
+  return { parts, W, H, D, IW, IH, bands, cells: cols * rows };
+}
+
+// ---------------------------------------------------------------------------
+// ROZKROJ - MaxRects (best short side fit) z obrotem o 90 stopni
+// ---------------------------------------------------------------------------
+
+function rotatePart(p) {
+  const rot = pts => pts.map(q => [p.h - q[1], q[0]]);
+  return {
+    ...p, w: p.h, h: p.w,
+    cut: p.cut.map(rot),
+    engrave: p.engrave.map(e => e.poly
+      ? { poly: rot(e.poly) }
+      : { ...e, x: p.h - e.y, y: e.x })
+  };
+}
+
+function makeSheet(sheetW, sheetH, margin) {
+  return { items: [], free: [{ x: margin, y: margin, w: sheetW - 2 * margin, h: sheetH - 2 * margin }] };
+}
+
+function findSpot(sheet, w, h, allowRot) {
+  let best = null;
+  for (const f of sheet.free) {
+    for (const rot of allowRot ? [false, true] : [false]) {
+      const iw = rot ? h : w, ih = rot ? w : h;
+      if (iw > f.w || ih > f.h) continue;
+      const short = Math.min(f.w - iw, f.h - ih);
+      const long = Math.max(f.w - iw, f.h - ih);
+      if (!best || short < best.short || (short === best.short && long < best.long)) {
+        best = { x: f.x, y: f.y, w: iw, h: ih, rot, short, long };
+      }
+    }
+  }
+  return best;
+}
+
+function occupy(sheet, r) {
+  const next = [];
+  for (const f of sheet.free) {
+    if (r.x >= f.x + f.w || r.x + r.w <= f.x || r.y >= f.y + f.h || r.y + r.h <= f.y) {
+      next.push(f); continue;
+    }
+    if (r.x > f.x) next.push({ x: f.x, y: f.y, w: r.x - f.x, h: f.h });
+    if (r.x + r.w < f.x + f.w) next.push({ x: r.x + r.w, y: f.y, w: f.x + f.w - r.x - r.w, h: f.h });
+    if (r.y > f.y) next.push({ x: f.x, y: f.y, w: f.w, h: r.y - f.y });
+    if (r.y + r.h < f.y + f.h) next.push({ x: f.x, y: r.y + r.h, w: f.w, h: f.y + f.h - r.y - r.h });
+  }
+  sheet.free = next.filter((a, i) => a.w > 1 && a.h > 1 &&
+    !next.some((b, j) => i !== j && a.x >= b.x && a.y >= b.y &&
+      a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h && (b.w * b.h > a.w * a.h || j < i)));
+}
+
+function nest(parts, sheetW, sheetH, margin, gap, allowRot) {
+  const items = [];
+  parts.forEach((p, pi) => { for (let i = 0; i < p.qty; i++) items.push({ pi, w: p.w, h: p.h }); });
+  items.sort((a, b) => (b.w * b.h) - (a.w * a.h) || Math.max(b.w, b.h) - Math.max(a.w, a.h));
+
+  const sheets = [];
+  for (const it of items) {
+    const w = it.w + gap, h = it.h + gap;
+    let done = false;
+    for (const sh of sheets) {
+      const spot = findSpot(sh, w, h, allowRot);
+      if (spot) { sh.items.push({ pi: it.pi, x: spot.x, y: spot.y, rot: spot.rot }); occupy(sh, spot); done = true; break; }
+    }
+    if (done) continue;
+    const sh = makeSheet(sheetW, sheetH, margin);
+    const spot = findSpot(sh, w, h, allowRot);
+    if (spot) { sh.items.push({ pi: it.pi, x: spot.x, y: spot.y, rot: spot.rot }); occupy(sh, spot); }
+    else sh.items.push({ pi: it.pi, x: margin, y: margin, rot: false, oversize: true });
+    sheets.push(sh);
+  }
+  return sheets;
+}
+
+// zwraca gotowy do rysowania obiekt czesci (po ewentualnym obrocie)
+function placed(parts, it) {
+  return it.rot ? rotatePart(parts[it.pi]) : parts[it.pi];
+}
+
+// ---------------------------------------------------------------------------
+// EKSPORT
+// ---------------------------------------------------------------------------
+
+function polyToSvg(poly) {
+  return 'M' + poly.map(p => `${p[0].toFixed(3)},${p[1].toFixed(3)}`).join('L') + 'Z';
+}
+
+function sheetSvg(sheet, parts, sheetW, sheetH, opts) {
+  const cuts = [], engs = [], labels = [];
+  for (const it of sheet.items) {
+    const p = placed(parts, it);
+    for (const poly of p.cut) cuts.push(polyToSvg(poly.map(q => [q[0] + it.x, q[1] + it.y])));
+    for (const e of p.engrave) {
+      if (e.poly) engs.push(polyToSvg(e.poly.map(q => [q[0] + it.x, q[1] + it.y])));
+      else if (e.text) labels.push({ ...e, x: e.x + it.x, y: e.y + it.y });
+    }
+  }
+  const parts_ = [];
+  parts_.push(`<rect x="0" y="0" width="${sheetW}" height="${sheetH}" fill="none" stroke="#c9c4b8" stroke-width="0.4" stroke-dasharray="4 3"/>`);
+  parts_.push(`<g id="CUT" fill="none" stroke="#111111" stroke-width="0.15">${cuts.map(d => `<path d="${d}"/>`).join('')}</g>`);
+  parts_.push(`<g id="ENGRAVE" fill="none" stroke="#d0021b" stroke-width="0.15">${engs.map(d => `<path d="${d}"/>`).join('')}</g>`);
+  parts_.push(`<g id="TEXT" fill="none" stroke="#d0021b" stroke-width="0.15">${labels.map(l =>
+    `<text x="${l.x.toFixed(2)}" y="${l.y.toFixed(2)}" font-family="Arial" font-size="${l.size}" text-anchor="middle" fill="#d0021b" stroke="none">${escapeXml(l.text || '')}</text>`).join('')}</g>`);
+  if (opts && opts.labels) {
+    parts_.push(`<g id="OPIS" fill="#8a857a" stroke="none" font-family="Arial" font-size="6">${sheet.items.map(it =>
+      `<text x="${(it.x + 3).toFixed(1)}" y="${(it.y + 8).toFixed(1)}">${escapeXml(parts[it.pi].name)}${it.rot ? ' \u21bb' : ''}</text>`).join('')}</g>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${sheetW}mm" height="${sheetH}mm" viewBox="0 0 ${sheetW} ${sheetH}">${parts_.join('')}</svg>`;
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+}
+
+function sheetDxf(sheet, parts, sheetH) {
+  const out = [];
+  const e = (code, val) => { out.push(code); out.push(String(val)); };
+  e(0, 'SECTION'); e(2, 'ENTITIES');
+
+  const poly = (pts, layer) => {
+    e(0, 'POLYLINE'); e(8, layer); e(66, 1); e(70, 1);
+    for (const p of pts) {
+      e(0, 'VERTEX'); e(8, layer);
+      e(10, p[0].toFixed(4)); e(20, (sheetH - p[1]).toFixed(4)); e(30, '0.0');
+    }
+    e(0, 'SEQEND'); e(8, layer);
+  };
+
+  for (const it of sheet.items) {
+    const p = placed(parts, it);
+    for (const c of p.cut) poly(c.map(q => [q[0] + it.x, q[1] + it.y]), 'CUT');
+    for (const en of p.engrave) {
+      if (en.poly) poly(en.poly.map(q => [q[0] + it.x, q[1] + it.y]), 'ENGRAVE');
+      else if (en.text) {
+        e(0, 'TEXT'); e(8, 'ENGRAVE');
+        e(10, (en.x + it.x).toFixed(3)); e(20, (sheetH - (en.y + it.y)).toFixed(3)); e(30, '0.0');
+        e(40, en.size.toFixed(2)); e(1, en.text); e(72, 1); e(11, (en.x + it.x).toFixed(3));
+        e(21, (sheetH - (en.y + it.y)).toFixed(3)); e(31, '0.0');
+      }
+    }
+  }
+  e(0, 'ENDSEC'); e(0, 'EOF');
+  return out.join('\r\n');
+}
+
+function download(name, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+
+const SKU = {
+  'S-26': { cols: 2, rows: 13 },
+  'S-30': { cols: 3, rows: 10 },
+  'S-36': { cols: 3, rows: 12 },
+  'wlasny': null
+};
+
+const state = {
+  sku: 'S-30', cols: 3, rows: 10,
+  t: 3.0, fit: 0.15, cellW: 178, cellH: 25, depth: 90,
+  headerH: 32, useHeader: true, slitW: 8, tabW: 18, tabN: 3,
+  solidBack: false, solidStiffener: false,
+  schoolName: 'Szkola Podstawowa nr 1', className: 'Klasa 5a',
+  sheetW: 760, sheetH: 760, margin: 6, gap: 4, allowRot: true,
+  sheetPrice: 15.07, showLabels: true, sheetIdx: 0
+};
+
+let model = null, sheets = null;
+
+function recompute() {
+  if (SKU[state.sku]) { state.cols = SKU[state.sku].cols; state.rows = SKU[state.sku].rows; }
+  model = build(state);
+  sheets = nest(model.parts, state.sheetW, state.sheetH, state.margin, state.gap, state.allowRot);
+  if (state.sheetIdx >= sheets.length) state.sheetIdx = 0;
+}
+
+function netArea() {
+  let a = 0;
+  for (const p of model.parts) a += p.qty * p.w * p.h;
+  return a / 1e6;
+}
+
+function render() {
+  recompute();
+  const el = document.getElementById('app');
+  const sheetArea = state.sheetW * state.sheetH / 1e6;
+  const used = sheets.length * sheetArea;
+  const cost = sheets.length * state.sheetPrice;
+
+  el.innerHTML = `
+  <style>
+    #app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           color: #22201c; background: #fbfaf7; line-height: 1.5; }
+    #app * { box-sizing: border-box; }
+    .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 0; min-height: 100vh; }
+    @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+    .panel { background: #f2efe8; border-right: 1px solid #ddd8cc; padding: 20px; }
+    .stage { padding: 20px; overflow: auto; }
+    h1 { font-size: 17px; font-weight: 600; margin: 0 0 2px; }
+    .sub { font-size: 12px; color: #78736a; margin: 0 0 20px; }
+    fieldset { border: none; border-top: 1px solid #ddd8cc; margin: 0 0 16px; padding: 14px 0 0; }
+    legend { font-size: 11px; letter-spacing: .04em; color: #78736a; padding: 0 8px 0 0; }
+    label { display: block; font-size: 12px; color: #56524b; margin: 10px 0 3px; }
+    input, select { width: 100%; padding: 6px 8px; font-size: 13px; border: 1px solid #cfc9bb;
+            border-radius: 3px; background: #fff; color: #22201c; font-variant-numeric: tabular-nums; }
+    input:focus, select:focus { outline: 2px solid #3a6ea5; outline-offset: -1px; border-color: #3a6ea5; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .chk { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 13px; }
+    .chk input { width: auto; }
+    button { padding: 9px 14px; font-size: 13px; border: 1px solid #22201c; background: #22201c;
+             color: #fbfaf7; border-radius: 3px; cursor: pointer; }
+    button.ghost { background: transparent; color: #22201c; }
+    button:hover { opacity: .85; }
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+             gap: 1px; background: #ddd8cc; border: 1px solid #ddd8cc; margin-bottom: 18px; }
+    .stat { background: #fbfaf7; padding: 10px 12px; }
+    .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 500; }
+    .stat span { font-size: 11px; color: #78736a; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+    .tabs button { padding: 5px 11px; font-size: 12px; background: #fff; color: #56524b; border-color: #cfc9bb; }
+    .tabs button[aria-current="true"] { background: #22201c; color: #fbfaf7; border-color: #22201c; }
+    .preview { border: 1px solid #ddd8cc; background: #fff; padding: 8px; }
+    .preview svg { width: 100%; height: auto; display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 18px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e8e3d8; }
+    th { color: #78736a; font-weight: 500; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .note { font-size: 12px; color: #78736a; margin-top: 14px; max-width: 62ch; }
+    .warn { background: #fdf2e0; border-left: 3px solid #ba7517; padding: 9px 12px;
+            font-size: 12px; color: #6b4410; margin-top: 14px; border-radius: 0; }
+  </style>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Organizer SECURE</h1>
+      <p class="sub">Generator plików do cięcia — laser.cat</p>
+
+      <fieldset><legend>Rozmiar</legend>
+        <label>Wariant</label>
+        <select data-k="sku">${Object.keys(SKU).map(k =>
+          `<option value="${k}" ${state.sku === k ? 'selected' : ''}>${k}${SKU[k] ? ` — ${SKU[k].cols * SKU[k].rows} miejsc` : ''}</option>`).join('')}</select>
+        <div class="row2">
+          <div><label>Kolumny</label><input type="number" data-k="cols" value="${state.cols}" min="1" max="6" ${SKU[state.sku] ? 'disabled' : ''}></div>
+          <div><label>Rzędy</label><input type="number" data-k="rows" value="${state.rows}" min="2" max="20" ${SKU[state.sku] ? 'disabled' : ''}></div>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Materiał i pasowanie</legend>
+        <div class="row2">
+          <div><label>Grubość zmierzona (mm)</label><input type="number" step="0.05" data-k="t" value="${state.t}"></div>
+          <div><label>Kompensacja szczeliny</label><input type="number" step="0.01" data-k="fit" value="${state.fit}"></div>
+        </div>
+        <div class="row2">
+          <div><label>Szerokość pióra (mm)</label><input type="number" step="1" data-k="tabW" value="${state.tabW}"></div>
+          <div><label>Liczba piór</label><input type="number" step="1" min="2" max="6" data-k="tabN" value="${state.tabN}"></div>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Przegródka</legend>
+        <div class="row2">
+          <div><label>Szerokość (mm)</label><input type="number" data-k="cellW" value="${state.cellW}"></div>
+          <div><label>Wysokość (mm)</label><input type="number" data-k="cellH" value="${state.cellH}"></div>
+        </div>
+        <div class="row2">
+          <div><label>Głębokość (mm)</label><input type="number" data-k="depth" value="${state.depth}"></div>
+          <div><label>Szczelina wglądu (mm)</label><input type="number" data-k="slitW" value="${state.slitW}"></div>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Opcje konstrukcyjne</legend>
+        <div class="chk"><input type="checkbox" id="uh" data-k="useHeader" ${state.useHeader ? 'checked' : ''}><label for="uh" style="margin:0">Pasek nagłówkowy z grawerem</label></div>
+        <div class="chk"><input type="checkbox" id="sb" data-k="solidBack" ${state.solidBack ? 'checked' : ''}><label for="sb" style="margin:0">Pełne plecy (wersja biurkowa)</label></div>
+        <div class="chk"><input type="checkbox" id="ss" data-k="solidStiffener" ${state.solidStiffener ? 'checked' : ''}><label for="ss" style="margin:0">Pełna ramka drzwi</label></div>
+      </fieldset>
+
+      <fieldset><legend>Grawer</legend>
+        <label>Nazwa szkoły</label><input data-k="schoolName" value="${escapeXml(state.schoolName)}">
+        <label>Klasa</label><input data-k="className" value="${escapeXml(state.className)}">
+      </fieldset>
+
+      <fieldset><legend>Arkusz</legend>
+        <div class="row2">
+          <div><label>Szerokość (mm)</label><input type="number" data-k="sheetW" value="${state.sheetW}"></div>
+          <div><label>Wysokość (mm)</label><input type="number" data-k="sheetH" value="${state.sheetH}"></div>
+        </div>
+        <div class="row2">
+          <div><label>Margines</label><input type="number" data-k="margin" value="${state.margin}"></div>
+          <div><label>Odstęp części</label><input type="number" data-k="gap" value="${state.gap}"></div>
+        </div>
+        <label>Cena arkusza (zł)</label><input type="number" step="0.01" data-k="sheetPrice" value="${state.sheetPrice}">
+        <div class="chk"><input type="checkbox" id="ar" data-k="allowRot" ${state.allowRot ? 'checked' : ''}><label for="ar" style="margin:0">Pozwól obracać części o 90°</label></div>
+      </fieldset>
+
+      <div class="btns">
+        <button id="dlsvg">Pobierz SVG</button>
+        <button id="dldxf" class="ghost">Pobierz DXF</button>
+        <button id="dlall" class="ghost">Wszystkie arkusze</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stats">
+        <div class="stat"><b>${model.cells}</b><span>miejsc na telefony</span></div>
+        <div class="stat"><b>${model.W.toFixed(0)} × ${model.H.toFixed(0)}</b><span>korpus, mm</span></div>
+        <div class="stat"><b>${(model.D + 2 * state.t).toFixed(0)}</b><span>głębokość z drzwiami, mm</span></div>
+        <div class="stat"><b>${netArea().toFixed(3)}</b><span>materiał netto, m²</span></div>
+        <div class="stat"><b>${sheets.length}</b><span>arkuszy ${state.sheetW}×${state.sheetH}</span></div>
+        <div class="stat"><b>${cost.toFixed(2)} zł</b><span>materiał / szt.</span></div>
+      </div>
+
+      <div class="tabs">
+        ${sheets.map((s, i) => `<button data-sheet="${i}" aria-current="${i === state.sheetIdx}">Arkusz ${i + 1}</button>`).join('')}
+        <button id="tgl" class="ghost">${state.showLabels ? 'Ukryj opisy' : 'Pokaż opisy'}</button>
+      </div>
+
+      <div class="preview">${sheetSvg(sheets[state.sheetIdx], model.parts, state.sheetW, state.sheetH, { labels: state.showLabels })}</div>
+
+      ${sheets.some(s => s.items.some(i => i.oversize)) ? `<div class="warn">Któraś część nie mieści się na arkuszu ${state.sheetW}×${state.sheetH} mm. Zmniejsz liczbę kolumn albo szerokość przegródki.</div>` : ''}
+
+      <table>
+        <thead><tr><th>Element</th><th class="num">Szt.</th><th class="num">Wymiar (mm)</th></tr></thead>
+        <tbody>${model.parts.map(p =>
+          `<tr><td>${escapeXml(p.name)}</td><td class="num">${p.qty}</td><td class="num">${p.w.toFixed(1)} × ${p.h.toFixed(1)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+
+      <p class="note">Warstwa CUT tnie, ENGRAVE grawer. Numery przegródek są wektorem kreskowym — wchodzą do LightBurn bez konwersji czcionki. Nazwa szkoły idzie jako tekst: jeśli laser jej nie zaimportuje, zamień na krzywe w Inkscape.</p>
+      <p class="note">Przed pierwszym cięciem serii zmierz suwmiarką realną grubość partii sklejki i wpisz ją w pole „grubość zmierzona”. Przy 3&nbsp;mm brzozie różnica 0,3&nbsp;mm decyduje, czy pióro wchodzi na wcisk, czy konstrukcja się rozlatuje.</p>
+    </div>
+  </div>`;
+
+  el.querySelectorAll('[data-k]').forEach(inp => {
+    const ev = inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input';
+    inp.addEventListener(ev, e => {
+      const k = inp.dataset.k;
+      if (inp.type === 'checkbox') state[k] = inp.checked;
+      else if (inp.type === 'number') state[k] = parseFloat(inp.value) || 0;
+      else state[k] = inp.value;
+      const pos = inp.selectionStart;
+      render();
+      const again = document.querySelector(`[data-k="${k}"]`);
+      if (again && again.setSelectionRange && inp.type !== 'number') { again.focus(); again.setSelectionRange(pos, pos); }
+      else if (again) again.focus();
+    });
+  });
+
+  el.querySelectorAll('[data-sheet]').forEach(b =>
+    b.addEventListener('click', () => { state.sheetIdx = +b.dataset.sheet; render(); }));
+  const tgl = document.getElementById('tgl');
+  if (tgl) tgl.addEventListener('click', () => { state.showLabels = !state.showLabels; render(); });
+
+  const base = `organizer-${state.sku}-${model.cells}`;
+  document.getElementById('dlsvg').addEventListener('click', () =>
+    download(`${base}-ark${state.sheetIdx + 1}.svg`,
+      sheetSvg(sheets[state.sheetIdx], model.parts, state.sheetW, state.sheetH, {}), 'image/svg+xml'));
+  document.getElementById('dldxf').addEventListener('click', () =>
+    download(`${base}-ark${state.sheetIdx + 1}.dxf`,
+      sheetDxf(sheets[state.sheetIdx], model.parts, state.sheetH), 'application/dxf'));
+  document.getElementById('dlall').addEventListener('click', () => {
+    sheets.forEach((s, i) => setTimeout(() =>
+      download(`${base}-ark${i + 1}.svg`, sheetSvg(s, model.parts, state.sheetW, state.sheetH, {}), 'image/svg+xml'), i * 300));
+  });
+}
+
+render();
+</script>
