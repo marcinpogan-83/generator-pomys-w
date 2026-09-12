@@ -1,0 +1,16 @@
+{
+  "name": "organizer-secure-generator",
+  "version": "1.0.0",
+  "description": "Generator plikow CNC/laser dla organizera SECURE na telefony - model, rozkroj, eksport SVG/DXF",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "export": "node tools/export-cli.mjs",
+    "test": "node tools/run-tests.mjs",
+    "test:unit": "node --test tests/unit",
+    "test:visual": "node tools/run-visual.mjs",
+    "test:dxf": "python3 -m pytest tests/python -q"
+  },
+  "engines": { "node": ">=20" }
+}
