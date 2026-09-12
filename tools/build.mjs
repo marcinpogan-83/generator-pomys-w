@@ -10,7 +10,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ORDER = ['geometry.js', 'model.js', 'model-stepped.js', 'models.js', 'nest.js', 'layout.js', 'svg.js', 'dxf.js', 'lbrn.js', 'app.js'];
+const ORDER = ['geometry.js', 'model.js', 'model-rack.js', 'models.js', 'nest.js', 'layout.js', 'svg.js', 'dxf.js', 'lbrn.js', 'app.js'];
 
 export function stripModuleSyntax(code, file = '?') {
   // Bundler laczy moduly w jednej przestrzeni nazw - alias importu (`as`)

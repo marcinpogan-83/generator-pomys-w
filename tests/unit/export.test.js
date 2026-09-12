@@ -150,8 +150,8 @@ test('DXF obroconej czesci obraca takze tekst', () => {
   }
 });
 
-test('eksport modelu schodkowego jest spojny z manifestem', () => {
-  const model = buildModel('stepped', modelDefaults('stepped'));
+test('eksport modelu kieszeniowego jest spojny z manifestem', () => {
+  const model = buildModel('rack', modelDefaults('rack'));
   const nested = nest(model.parts, OPTS);
   for (const sheet of nested.sheets) {
     const man = sheetManifest(sheet, model.parts, OPTS);

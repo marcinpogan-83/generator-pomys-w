@@ -32,8 +32,8 @@ def test_kazdy_arkusz_ma_projekt_lightburn(exports, name):
 
 
 def test_struktura_pliku_lightburn(exports):
-    spec = manifest_of(exports["schodkowy"])
-    root = ET.parse(exports["schodkowy"] / spec["sheets"][0]["lbrn"]).getroot()
+    spec = manifest_of(exports["kieszeniowy"])
+    root = ET.parse(exports["kieszeniowy"] / spec["sheets"][0]["lbrn"]).getroot()
     assert root.tag == "LightBurnProject"
     assert root.get("FormatVersion") == "1"
     warstwy = [(cs.get("type"), cs.find("name").get("Value")) for cs in root.findall("CutSetting")]
@@ -43,11 +43,11 @@ def test_struktura_pliku_lightburn(exports):
 
 
 def test_lightburn_i_dxf_opisuja_te_sama_liczbe_konturow(exports):
-    spec = manifest_of(exports["schodkowy"])
+    spec = manifest_of(exports["kieszeniowy"])
     for sheet in spec["sheets"]:
-        root = ET.parse(exports["schodkowy"] / sheet["lbrn"]).getroot()
+        root = ET.parse(exports["kieszeniowy"] / sheet["lbrn"]).getroot()
         sciezki = [s for s in root.findall("Shape") if s.get("Type") == "Path"]
-        doc = ezdxf.readfile(exports["schodkowy"] / sheet["dxf"])
+        doc = ezdxf.readfile(exports["kieszeniowy"] / sheet["dxf"])
         polilinie = [e for e in doc.modelspace() if e.dxftype() == "POLYLINE"]
         assert len(sciezki) == len(polilinie)
 
@@ -56,7 +56,7 @@ def test_lightburn_i_dxf_opisuja_te_sama_liczbe_konturow(exports):
 
 def _kopia(tmp_path: Path, exports: dict[str, Path]):
     work = tmp_path / "kopia"
-    shutil.copytree(exports["schodkowy"], work)
+    shutil.copytree(exports["kieszeniowy"], work)
     spec = manifest_of(work)
     return work, spec, spec["sheets"][0]
 

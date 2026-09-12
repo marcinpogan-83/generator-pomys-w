@@ -10,7 +10,7 @@ import ezdxf
 import pytest
 from ezdxf.audit import Auditor
 
-from conftest import EXPORTS, STEPPED_EXPORTS, ROOT, run_export
+from conftest import EXPORTS, RACK_EXPORTS, ROOT, run_export
 from validate_dxf import validate_export, validate_sheet
 
 
@@ -170,17 +170,21 @@ def test_walidator_wykrywa_brak_jednostek(tmp_path, exports):
     assert any("INSUNITS" in e for e in errors(validate_sheet(path, manifest, sheet)))
 
 
-@pytest.mark.parametrize("name", STEPPED_EXPORTS)
-def test_model_schodkowy_ma_komplet_czesci(exports, name):
+@pytest.mark.parametrize("name", RACK_EXPORTS)
+def test_model_kieszeniowy_ma_komplet_czesci(exports, name):
     manifest = json.loads((exports[name] / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["model"] == "stepped"
+    assert manifest["model"] == "rack"
+    cfg = manifest["config"]
     nazwy = [p["name"] for p in manifest["parts"]]
-    assert "Bok" in nazwy and "Podstawa" in nazwy and "Panel czolowy" in nazwy
-    poprzeczne = [n for n in nazwy if n.startswith("Przegroda poprzeczna")]
-    assert len(poprzeczne) == manifest["config"]["pockets"] + 1
+    assert "Bok" in nazwy and "Dno (pochyle)" in nazwy and "Panel czolowy" in nazwy
+    poprzeczne = [n for n in nazwy if n.startswith("Przegroda ")]
+    # rzedy - 1 przegrod standardowych + (cols-1) przegrod podluznych
+    assert len([n for n in poprzeczne if "kieszenie" in n]) == cfg["rows"] - 1
+    assert any(n.startswith("Panel tylny") for n in nazwy)
+    assert manifest["stats"]["cells"] == cfg["rows"] * cfg["cols"]
     # numery kieszeni sa grawerowane wektorowo, wiec w DXF sa polilinie ENGRAVE
     engrave = sum(s["counts"]["polylinesEngrave"] for s in manifest["sheets"])
-    assert engrave > manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
+    assert engrave >= manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
 
 
 def test_swiezy_eksport_z_linii_polecen_jest_poprawny(tmp_path):
@@ -191,9 +195,9 @@ def test_swiezy_eksport_z_linii_polecen_jest_poprawny(tmp_path):
     assert (ROOT / "tools" / "validate_dxf.py").exists()
 
 
-def test_eksport_schodkowy_z_linii_polecen(tmp_path):
-    out = tmp_path / "cli-stepped"
-    manifest = run_export(out, ["--model", "stepped", "--sku", "K-32", "--sheet", "1220x610"])
-    assert manifest["model"] == "stepped"
+def test_eksport_kieszeniowy_z_linii_polecen(tmp_path):
+    out = tmp_path / "cli-rack"
+    manifest = run_export(out, ["--model", "rack", "--sku", "R-32", "--sheet", "1220x610"])
+    assert manifest["model"] == "rack"
     assert manifest["stats"]["cells"] == 32
     assert errors(validate_export(out)) == []

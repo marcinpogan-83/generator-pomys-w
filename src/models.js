@@ -5,7 +5,7 @@
 // Uwaga: bundler (tools/build.mjs) laczy moduly w jednej przestrzeni nazw,
 // dlatego importy nie moga uzywac aliasow (`as`) - nazwy sa globalne.
 import { DEFAULTS, SKU, build, validateConfig, netArea } from './model.js';
-import { STEPPED_DEFAULTS, STEPPED_SKU, buildStepped, validateSteppedConfig } from './model-stepped.js';
+import { RACK_DEFAULTS, RACK_SKU, buildRack, validateRackConfig } from './model-rack.js';
 
 const skuOptions = (sku, labelFor) =>
   Object.keys(sku).map(k => ({ value: k, label: labelFor(k) }));
@@ -51,41 +51,41 @@ export const MODELS = {
     ]
   },
 
-  stepped: {
-    id: 'stepped',
-    label: 'Schodkowy — kieszenie pochyłe',
-    hint: 'Stojak schodkowy: przegrody poprzeczne w opadajacych wcieciach bokow, kieszenie na telefony z numerami.',
-    defaults: { sku: 'K-24', ...STEPPED_DEFAULTS },
-    sku: STEPPED_SKU,
-    build: buildStepped,
-    validate: validateSteppedConfig,
+  rack: {
+    id: 'rack',
+    label: 'Kieszeniowy — rzedy i linie',
+    hint: 'Konstrukcja jak w przykladowym projekcie: przegrody poprzeczne w opadajacych wcieciach bokow, kieszenie na telefony z numerami, przegrody podluzne dzielace linie.',
+    defaults: { sku: 'R-24', ...RACK_DEFAULTS },
+    sku: RACK_SKU,
+    build: buildRack,
+    validate: validateRackConfig,
     countLabel: 'kieszeni na telefony',
     groups: [
-      { legend: 'Rozmiar', fields: [
+      { legend: 'Siatka', fields: [
         { k: 'sku', label: 'Wariant', type: 'select',
-          options: skuOptions(STEPPED_SKU, k => STEPPED_SKU[k] ? `${k} — ${STEPPED_SKU[k].cols * STEPPED_SKU[k].pockets} miejsc` : k) },
-        { k: 'cols', label: 'Kolumny', type: 'number', min: 1, max: 6, half: true, lockedBySku: true },
-        { k: 'pockets', label: 'Kieszenie', type: 'number', min: 1, max: 20, half: true, lockedBySku: true }
+          options: skuOptions(RACK_SKU, k => RACK_SKU[k] ? `${k} — ${RACK_SKU[k].rows * RACK_SKU[k].cols} miejsc` : k) },
+        { k: 'rows', label: 'Rzędy (w głąb)', type: 'number', min: 1, max: 24, half: true, lockedBySku: true },
+        { k: 'cols', label: 'Linie (kolumny)', type: 'number', min: 1, max: 8, half: true, lockedBySku: true }
       ] },
       { legend: 'Materiał i pasowanie', fields: [
         { k: 't', label: 'Grubość zmierzona (mm)', type: 'number', step: 0.05, half: true },
-        { k: 'fit', label: 'Kompensacja szczeliny', type: 'number', step: 0.01, half: true },
-        { k: 'tabW', label: 'Szerokość pióra (mm)', type: 'number', step: 1, half: true },
-        { k: 'tabN', label: 'Liczba piór', type: 'number', step: 1, min: 2, max: 6, half: true }
+        { k: 'fit', label: 'Kompensacja szczeliny', type: 'number', step: 0.01, half: true }
       ] },
       { legend: 'Kieszeń', fields: [
-        { k: 'cellW', label: 'Szerokość kolumny (mm)', type: 'number', half: true },
-        { k: 'pocketW', label: 'Szerokość kieszeni (mm)', type: 'number', half: true },
-        { k: 'pocketH', label: 'Wysokość przegrody (mm)', type: 'number', half: true },
-        { k: 'slotDepth', label: 'Osadzenie w boku (mm)', type: 'number', half: true }
+        { k: 'cellW', label: 'Szerokość linii (mm)', type: 'number', half: true },
+        { k: 'pocketW', label: 'Prześwit kieszeni (mm)', type: 'number', half: true },
+        { k: 'pocketDepth', label: 'Głębokość kieszeni (mm)', type: 'number', half: true },
+        { k: 'overTop', label: 'Wystawanie ponad szynę (mm)', type: 'number', half: true }
       ] },
-      { legend: 'Schody i korpus', fields: [
-        { k: 'drop', label: 'Opad na kieszeń (mm)', type: 'number', step: 0.5, half: true },
-        { k: 'lap', label: 'Zakład przegród (mm)', type: 'number', step: 1, half: true },
-        { k: 'edgeMargin', label: 'Zapas przy krawędzi (mm)', type: 'number', half: true },
-        { k: 'underH', label: 'Wysokość korpusu (mm)', type: 'number', half: true }
+      { legend: 'Korpus', fields: [
+        { k: 'tilt', label: 'Pochylenie szyny (°)', type: 'number', step: 1, min: 1, max: 44, half: true },
+        { k: 'railSlot', label: 'Osadzenie w boku (mm)', type: 'number', half: true },
+        { k: 'frontDrop', label: 'Wysokość panelu czołowego (mm)', type: 'number', half: true },
+        { k: 'footH', label: 'Łuk nóżek (mm)', type: 'number', half: true }
       ] },
-      { legend: 'Grawer', fields: [
+      { legend: 'Numery i grawer', fields: [
+        { k: 'numTabW', label: 'Szerokość języczka (mm)', type: 'number', half: true },
+        { k: 'scoopH', label: 'Wysokość języczka (mm)', type: 'number', half: true },
         { k: 'schoolName', label: 'Nazwa szkoły', type: 'text' },
         { k: 'className', label: 'Klasa', type: 'text' }
       ] }

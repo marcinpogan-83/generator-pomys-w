@@ -9,7 +9,7 @@ Dostępne są dwa typy konstrukcji:
 | Typ | Opis |
 | --- | --- |
 | **SECURE — szafka z drzwiami** | zamykana szafka, przegródki w siatce kolumn i rzędów, drzwi ze szczelinami wglądu i numerami |
-| **Schodkowy — kieszenie pochyłe** | otwarty stojak: przegrody poprzeczne stoją w opadających wcięciach boków, między nimi powstają pochyłe kieszenie na telefony |
+| **Kieszeniowy — rzędy i linie** | konstrukcja z przykładowego projektu: przegrody poprzeczne stoją w opadających wcięciach boków, między nimi powstają kieszenie na telefony; liczba miejsc = rzędy × linie |
 
 ```
 npm run build        # dist/organizer-generator.html — jeden plik, dwuklik, działa offline
@@ -22,7 +22,7 @@ npm test             # komplet testów: jednostkowe + DXF (ezdxf) + LightBurn + 
 | --- | --- |
 | `src/geometry.js` | prymitywy 2D: czopy, gniazda, otwór kluczowy, jednokreskowy font cyfr |
 | `src/model.js` | model SECURE → lista części (`cut` / `engrave` / `texts`) + walidacja konfiguracji |
-| `src/model-stepped.js` | model schodkowy: boki ze schodkową krawędzią, przegrody poprzeczne i podłużne |
+| `src/model-rack.js` | model kieszeniowy: boki z opadającą szyną, przegrody poprzeczne i podłużne, pochyłe dno |
 | `src/models.js` | rejestr modeli: wartości domyślne, `build`/`validate` i opis pól formularza |
 | `src/nest.js` | rozkrój MaxRects (5 heurystyk × 6 porządków sortowania) + kontrola kolizji |
 | `src/layout.js`, `src/svg.js`, `src/dxf.js`, `src/lbrn.js` | przeniesienie części na arkusz i eksport (SVG, DXF, LightBurn) |
@@ -43,24 +43,40 @@ wchodzące w gniazda boków, drzwi ze szczelinami wglądu, grawerowanymi numeram
 i paskiem nagłówkowym (nazwa szkoły, klasa). Opcjonalnie pełne plecy i pełna
 ramka drzwi.
 
-### Schodkowy — kieszenie pochyłe
+### Kieszeniowy — rzędy i linie
 
-Odwzorowuje konstrukcję z przykładowego projektu LightBurn: dwa boki mają
-schodkowo opadającą krawędź górną z pionowymi wcięciami, w których stoją
-**identyczne przegrody poprzeczne**. Ponieważ opada krawędź, a nie przegrody,
-wszystkie przegrody są tą samą częścią — różnią się tylko grawerem numerów.
-Między przegrodami powstają pochyłe kieszenie na telefony, a przegrody podłużne
-(połączone z poprzecznymi na krzyżowy zakład) dzielą szerokość na kolumny.
-Całość spina podstawa, plecy i panel czołowy z nazwą szkoły i klasą.
+Odwzorowuje konstrukcję z przykładowego projektu LightBurn (organizer klasowy
+na 24 telefony):
 
-Parametry: liczba kolumn i kieszeni, szerokość kolumny i kieszeni, wysokość
-przegrody, głębokość osadzenia w boku, opad krawędzi na kieszeń (nachylenie),
-zakład przegród, zapas przy krawędzi, wysokość korpusu.
+* dwa **boki** mają szynę opadającą pod kątem (domyślnie 20°), a w niej wcięcia
+  co rozstaw kieszeni; niżej znajdują się pochyłe gniazda dna, gniazda panelu
+  tylnego i czołowego oraz łuk nóżek,
+* w wcięcia wchodzą czopy **identycznych przegród poprzecznych** — opada szyna,
+  a nie przegrody, więc wszystkie są tą samą częścią i różnią się wyłącznie
+  grawerem numeru,
+* górna krawędź każdej przegrody ma **języczek z numerem** dla każdej linii
+  i wybranie między nimi, żeby dało się chwycić telefon,
+* **przegrody podłużne** biegną wzdłuż spadku i dzielą kieszenie na linie
+  (połączenie na krzyżowy wpust ze skośnymi wpustami po stronie przegrody),
+* **pochyłe dno** równoległe do szyny, **panel tylny** z numerami ostatniego
+  rzędu i **panel czołowy** z nazwą szkoły i klasą.
+
+Liczba miejsc = **rzędy × linie**. Dodanie rzędu pogłębia korpus o rozstaw
+kieszeni i dokłada jedną przegrodę poprzeczną (oraz wcięcie w szynie i wpust
+w przegrodach podłużnych); dodanie linii poszerza wszystkie części o szerokość
+linii i dokłada jedną przegrodę podłużną. Numeracja biegnie od przodu, numery
+każdego rzędu są grawerowane na przegrodzie zamykającej go od tyłu.
+
+Warianty katalogowe: R-15 (5×3), R-24 (8×3), R-30 (10×3), R-32 (8×4).
 
 ```
-node tools/export-cli.mjs --model stepped --sku K-24 --out out/K-24
-node tools/export-cli.mjs --model stepped --set cols=4 --set pockets=10 --out out/wlasny
+node tools/export-cli.mjs --model rack --sku R-24 --out out/R-24
+node tools/export-cli.mjs --model rack --set rows=12 --set cols=4 --out out/wlasny
 ```
+
+Pozostałe parametry: szerokość linii, prześwit kieszeni, głębokość kieszeni,
+wystawanie przegrody ponad szynę, kąt pochylenia, osadzenie w boku, wysokość
+panelu czołowego, łuk nóżek, wymiary języczka z numerem.
 
 ## Format wyjściowy
 
@@ -153,6 +169,8 @@ jest sprawdzana testem, a nie tylko oglądana — `validatePlacement()`.
   są wektorem i nie mają tego problemu,
 * generator nie liczy kompensacji szerokości wiązki (kerf) — służy do tego pole
   „kompensacja szczeliny” dobierane doświadczalnie dla danej maszyny i materiału,
-* model schodkowy jest własną, parametryczną konstrukcją powtarzającą zasadę
-  działania przykładowego projektu (schodkowe wcięcia, identyczne przegrody,
-  numerowane kieszenie), a nie kopią jego geometrii co do milimetra.
+* model kieszeniowy odtwarza konstrukcję i wymiary przykładowego projektu
+  (bok 200×158, przegroda 318×113, panel czołowy 318×87, przegroda podłużna
+  230×80, dno 312×201 przy 8 rzędach × 3 liniach i materiale 3 mm), ale jest
+  własną, parametryczną implementacją — detale zdobnicze i drobne zatrzaski
+  oryginału nie są odwzorowane co do milimetra.

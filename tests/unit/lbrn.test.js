@@ -8,7 +8,7 @@ import { placedSheet } from '../../src/layout.js';
 
 const OPTS = { sheetW: 760, sheetH: 760, margin: 6, gap: 4, allowRot: true };
 
-function fixture(type = 'stepped', extra = {}) {
+function fixture(type = 'rack', extra = {}) {
   const model = buildModel(type, { ...modelDefaults(type), ...extra });
   const nested = nest(model.parts, OPTS);
   return { model, nested };
@@ -29,7 +29,7 @@ test('projekt LightBurn ma naglowek i obie warstwy', () => {
 });
 
 test('liczba ksztaltow zgadza sie z manifestem', () => {
-  for (const type of ['secure', 'stepped']) {
+  for (const type of ['secure', 'rack']) {
     const { model, nested } = fixture(type);
     for (const sheet of nested.sheets) {
       const xml = sheetLbrn(sheet, model.parts, OPTS);
@@ -79,7 +79,7 @@ test('os Y jest odbita, a geometria miesci sie w arkuszu', () => {
 });
 
 test('tekst trafia do pliku z trescia i wysokoscia', () => {
-  const { model, nested } = fixture('stepped', { schoolName: 'SP "Pod Debem" & 7', className: 'Klasa 6b' });
+  const { model, nested } = fixture('rack', { schoolName: 'SP "Pod Debem" & 7', className: 'Klasa 6b' });
   const xml = nested.sheets.map(s => sheetLbrn(s, model.parts, OPTS)).join('');
   assert.ok(xml.includes('Str="SP &quot;Pod Debem&quot; &amp; 7"'), 'tekst musi byc escapowany');
   assert.ok(xml.includes('Str="Klasa 6b"'));

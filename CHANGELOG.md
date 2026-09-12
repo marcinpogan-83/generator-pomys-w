@@ -5,10 +5,13 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
 ## Nieopublikowane
 
 ### Dodane
-* **Drugi typ organizera: schodkowy (kieszenie pochyłe)** — boki ze schodkowo
-  opadającą krawędzią, identyczne przegrody poprzeczne w pionowych wcięciach,
-  przegrody podłużne na krzyżowy zakład, podstawa, plecy i panel czołowy
-  z grawerem klasy; numery kieszeni grawerowane wektorowo (`src/model-stepped.js`).
+* **Drugi typ organizera: kieszeniowy (rzędy × linie)** — konstrukcja
+  odtworzona z przykładowego projektu LightBurn: boki z opadającą szyną
+  i wcięciami, identyczne przegrody poprzeczne z języczkami numerów i wybraniem
+  na palec, przegrody podłużne na krzyżowy wpust (skośne wpusty), pochyłe dno,
+  panel tylny z numerami ostatniego rzędu i panel czołowy z grawerem klasy
+  (`src/model-rack.js`). Liczba miejsc = rzędy × linie, obie wartości
+  parametryczne.
 * Rejestr modeli (`src/models.js`) i formularz budowany z opisu pól — wybór typu
   organizera w interfejsie oraz `--model` w eksporcie z linii poleceń.
 * **Eksport do LightBurn (.lbrn2)** (`src/lbrn.js`): warstwy CUT/ENGRAVE,

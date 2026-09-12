@@ -27,7 +27,7 @@ step('testy jednostkowe', 'node', ['--test', ...unitTests]);
 
 const exportDir = mkdtempSync(resolve(tmpdir(), 'organizer-'));
 step('eksport referencyjny (SECURE)', 'node', ['tools/export-cli.mjs', '--out', resolve(exportDir, 'secure')]);
-step('eksport referencyjny (schodkowy)', 'node', ['tools/export-cli.mjs', '--model', 'stepped', '--out', resolve(exportDir, 'stepped')]);
+step('eksport referencyjny (kieszeniowy)', 'node', ['tools/export-cli.mjs', '--model', 'rack', '--out', resolve(exportDir, 'rack')]);
 step('walidacja DXF (ezdxf)', 'python3', ['-m', 'pytest', 'tests/python', '-q'], { optional: true });
 step('testy wizualne (playwright)', 'node', ['tools/run-visual.mjs'], { optional: true });
 

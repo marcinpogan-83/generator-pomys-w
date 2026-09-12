@@ -21,7 +21,7 @@ test('stripModuleSyntax usuwa import/export, zostawia kod', () => {
 
 test('bundle sklada poprawny skladniowo skrypt ze wszystkich modulow', () => {
   const html = bundle();
-  for (const f of ['geometry.js', 'model.js', 'model-stepped.js', 'models.js', 'nest.js',
+  for (const f of ['geometry.js', 'model.js', 'model-rack.js', 'models.js', 'nest.js',
                    'layout.js', 'svg.js', 'dxf.js', 'lbrn.js', 'app.js']) {
     assert.ok(html.includes(`// ---- src/${f}`), `brak modulu ${f}`);
   }

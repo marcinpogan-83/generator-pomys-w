@@ -7,12 +7,12 @@ import { legacyNest } from '../baseline/legacy-nest.js';
 
 const OPTS = { sheetW: 760, sheetH: 760, margin: 6, gap: 4, allowRot: true };
 
-const STEPPED = [
+const RACK = [
   {},
-  { sku: 'K-30' },
-  { sku: 'K-32' },
-  { sku: 'wlasny', cols: 2, pockets: 12, cellW: 130 }
-].map(c => ({ ...modelDefaults('stepped'), ...c }));
+  { sku: 'R-30' },
+  { sku: 'R-32' },
+  { sku: 'wlasny', rows: 12, cols: 2, cellW: 130 }
+].map(c => ({ ...modelDefaults('rack'), ...c }));
 
 const CONFIGS = [
   {},
@@ -152,9 +152,9 @@ test('nowy rozkroj wygrywa takze na losowych konfiguracjach', () => {
   assert.ok(better > 0, `nowy algorytm nie poprawil zadnego z ${checked} przypadkow`);
 });
 
-test('model schodkowy tez uklada sie bez kolizji', () => {
-  for (const cfg of STEPPED) {
-    const parts = buildModel('stepped', cfg).parts;
+test('model kieszeniowy tez uklada sie bez kolizji', () => {
+  for (const cfg of RACK) {
+    const parts = buildModel('rack', cfg).parts;
     for (const [w, h] of SHEETS) {
       const opts = { ...OPTS, sheetW: w, sheetH: h };
       const res = nest(parts, opts);

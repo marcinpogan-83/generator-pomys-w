@@ -5,7 +5,7 @@ import { MODELS, DEFAULT_MODEL, modelDef, modelDefaults, buildModel, validateMod
 const TYPES = Object.keys(MODELS);
 
 test('rejestr zawiera oba modele i domyslny jest poprawny', () => {
-  assert.deepEqual(TYPES.sort(), ['secure', 'stepped']);
+  assert.deepEqual(TYPES.sort(), ['rack', 'secure']);
   assert.ok(MODELS[DEFAULT_MODEL]);
 });
 
@@ -52,8 +52,8 @@ test('opis formularza pokrywa sie z konfiguracja modelu', () => {
 test('zmiana kluczowego parametru zmienia liczbe miejsc', () => {
   const secure = buildModel('secure', { ...modelDefaults('secure'), sku: 'wlasny', cols: 2, rows: 5 });
   assert.equal(secure.cells, 10);
-  const stepped = buildModel('stepped', { ...modelDefaults('stepped'), sku: 'wlasny', cols: 2, pockets: 5 });
-  assert.equal(stepped.cells, 10);
+  const rack = buildModel('rack', { ...modelDefaults('rack'), sku: 'wlasny', rows: 5, cols: 2 });
+  assert.equal(rack.cells, 10);
 });
 
 test('nieznany model konczy sie czytelnym bledem', () => {

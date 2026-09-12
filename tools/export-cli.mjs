@@ -3,7 +3,7 @@
 // plikow produkcyjnych z linii polecen.
 //
 //   node tools/export-cli.mjs --out out/S-30 --sku S-30 --sheet 760x760
-//   node tools/export-cli.mjs --out out/K-24 --model stepped --sku K-24
+//   node tools/export-cli.mjs --out out/R-24 --model rack --sku R-24
 //   node tools/export-cli.mjs --out out/custom --set cols=4 --set rows=8
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -80,7 +80,7 @@ function parseArgs(argv) {
     else if (a === '--set') {
       const [k, v] = next().split('=');
       cfg[k] = v === 'true' ? true : v === 'false' ? false : (isNaN(Number(v)) ? v : Number(v));
-      if (k === 'cols' || k === 'rows' || k === 'pockets') cfg.sku = cfg.sku || 'wlasny';
+      if (k === 'cols' || k === 'rows') cfg.sku = cfg.sku || 'wlasny';
     } else throw new Error(`Nieznany argument: ${a}`);
   }
   return { cfg, nestOpts, out, model };

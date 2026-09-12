@@ -170,7 +170,7 @@ test('przelaczenie typu organizera przebudowuje model i rysunek', { skip }, asyn
       cells: window.ORGANIZER.model.cells,
       parts: window.ORGANIZER.model.parts.map(p => p.name)
     }));
-    await page.selectOption('[data-k="modelType"]', 'stepped');
+    await page.selectOption('[data-k="modelType"]', 'rack');
     await page.waitForSelector('#preview svg');
     const after = await page.evaluate(() => ({
       type: window.ORGANIZER.state.modelType,
@@ -181,8 +181,8 @@ test('przelaczenie typu organizera przebudowuje model i rysunek', { skip }, asyn
       eng: document.querySelectorAll('#ENGRAVE path').length
     }));
     assert.equal(before.type, 'secure');
-    assert.equal(after.type, 'stepped');
-    assert.ok(after.parts.some(n => n.startsWith('Przegroda poprzeczna')), 'brak przegrod poprzecznych');
+    assert.equal(after.type, 'rack');
+    assert.ok(after.parts.some(n => /^Przegroda \d+ /.test(n)), 'brak przegrod poprzecznych');
     assert.ok(after.parts.includes('Panel czolowy'));
     assert.notDeepEqual(after.parts, before.parts);
     assert.deepEqual(after.issues, []);
@@ -198,18 +198,18 @@ test('formularz pokazuje pola wlasciwe dla wybranego modelu', { skip }, async ()
     const keys = () => page.$$eval('[data-scope="model"]', els => els.map(e => e.dataset.k));
     const secure = await keys();
     assert.ok(secure.includes('cellH') && secure.includes('slitW'));
-    await page.selectOption('[data-k="modelType"]', 'stepped');
+    await page.selectOption('[data-k="modelType"]', 'rack');
     await page.waitForSelector('#preview svg');
-    const stepped = await keys();
-    assert.ok(stepped.includes('pockets') && stepped.includes('pocketW') && stepped.includes('drop'));
-    assert.ok(!stepped.includes('slitW'), 'pola modelu SECURE nie moga zostac po przelaczeniu');
+    const rack = await keys();
+    assert.ok(rack.includes('rows') && rack.includes('pocketW') && rack.includes('tilt'));
+    assert.ok(!rack.includes('slitW'), 'pola modelu SECURE nie moga zostac po przelaczeniu');
   });
 });
 
 test('raster podgladu zgadza sie z wzorcem', { skip }, async () => {
   await withPage(async (page) => {
     const signatures = {};
-    for (const type of ['secure', 'stepped']) {
+    for (const type of ['secure', 'rack']) {
       await page.selectOption('[data-k="modelType"]', type);
       await page.waitForSelector('#preview svg');
       const sheets = await page.evaluate(() => window.ORGANIZER.nested.sheets.length);
