@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build jednoplikowy
+        run: node tools/build.mjs
+
+      - name: Testy jednostkowe
+        run: npm run test:unit
+
+      - name: Zaleznosci Pythona
+        run: pip install -r requirements.txt
+
+      - name: Walidacja DXF (ezdxf)
+        run: npm run test:dxf
+
+      - name: Playwright + Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Testy wizualne
+        run: npm run test:visual
+
+      - name: Benchmark rozkroju
+        run: node tools/bench-nest.mjs 200
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: podglad-i-pliki
+          path: |
+            dist/
+            artifacts/visual/*.png
+          if-no-files-found: warn
