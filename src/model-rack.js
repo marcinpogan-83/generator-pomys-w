@@ -67,54 +67,70 @@ export function applyRackSku(cfg) {
 
 const rad = (deg) => deg * Math.PI / 180;
 
+// Proporcje pior dna (i gniazd w bokach) - dobierane do WIELKOSCI organizera,
+// nie stale dla wszystkich rozmiarow.
+const FLOOR_WIDTH_RATIO = 0.14;   // szerokosc pióra ~ 14% dlugosci dna
+const FLOOR_LONE_RATIO  = 0.18;   // pojedyncze pióro nieco szersze (samo niesie)
+const FLOOR_SPREAD_RATIO = 0.34;  // rozstaw dwoch pior ~ 34% dlugosci dna
+
 // Pióra dna (i odpowiadajace im gniazda w bokach) - jedno zrodlo prawdy, zeby
-// bok i dno zawsze pasowaly. Liczba i szerokosc pior sa dobierane do dlugosci
-// dna: dla krotkich organizerow (mniej rzedow) dwa sztywne pióra 28 mm wchodzily
-// w luk nozek i wychodzily poza obrys boku, dlatego pióra sie zwezaja, a gdy
-// nadal sie nie mieszcza - zostaje jedno, wysrodkowane pióro.
+// bok i dno zawsze pasowaly.
 //
-// Zwraca spans w ukladzie "wzdluz spadku" (u=0 przy panelu tylnym); ten sam
-// uklad ma dolna krawedz dna, wiec spans trafiaja wprost do obu czesci.
-//   backInset / frontInset - odstep od tylnej i przedniej krawedzi dna;
-//   frontInset jest wiekszy, bo przy przednim narozniku lico dna schodzi tuz
-//   nad dolna krawedz boku i pióro musi zostac od niej odsuniete.
+// Zamiast stalych 2 pior po 28 mm, liczba, szerokosc i rozstaw sa proporcjonalne
+// do dlugosci dna:
+//   - szerokosc pióra ~ FLOOR_WIDTH_RATIO * dlugosc (z gornym limitem floorTabLen
+//     i dolnym minW),
+//   - dwa pióra rozsuwane symetrycznie na ~FLOOR_SPREAD_RATIO dlugosci - w duzych
+//     organizerach daleko od siebie (dobra sztywnosc na skrecanie), w malych
+//     blizej, ale wciaz z realnym odstepem,
+//   - gdy dno jest za krotkie, by rozsunac dwa pióra z sensownym odstepem, zostaje
+//     JEDNO wysrodkowane pióro (czytelniejsze niz dwa sciśniete obok siebie).
+//
+// Uklad "wzdluz spadku" (u=0 przy panelu tylnym) - ten sam ma dolna krawedz dna,
+// wiec spans trafiaja wprost do obu czesci. frontInset jest wiekszy niz backInset,
+// bo przy przednim narozniku lico dna schodzi tuz nad luk nozek i pióro musi
+// zostac ponad ta linia.
 export function floorTabSpec(floorLen, cfg) {
   const t = cfg.t;
   const slotT = t - (cfg.fit || 0);
   const th = rad(cfg.tilt);
   const cos = Math.cos(th), slope = Math.tan(th);
-  const backInset = Math.max(3, t);
   const minGap = Math.max(6, 2 * t);
   const minW = Math.max(8, 3 * t);
+  const maxW = cfg.floorTabLen;
 
-  // Przedni koniec dna schodzi tuz nad dolna krawedz boku, a w srodku tej
-  // krawedzi jest luk nozek (material tylko do y = sideH - footH). Zeby pióro
-  // nie trafilo w luk ani nie przekroczylo dolu, jego lico musi zostac ponad
-  // ta linia: floorY(x) + slotT <= sideH - footH - margin, co daje minimalny
-  // odstep od przedniej krawedzi (wzdluz spadku).
+  const backInset = Math.max(2 * t, 0.05 * floorLen);
   const marginBelow = 1.5;
   const dropNeeded = Math.max(0, cfg.footH - cfg.underFloor + slotT + marginBelow);
   const archInset = slope > 0 ? Math.max(0, (dropNeeded / slope - 2 * t) / cos) : 0;
   const frontInset = Math.max(Math.max(12, 4 * t), archInset);
 
-  const window = floorLen - backInset - frontInset;
+  const lo = backInset, hi = floorLen - frontInset;
+  const window = hi - lo, mid = (lo + hi) / 2;
 
-  let n, w;
-  if (window >= 2 * minW + minGap) {
-    n = 2;                                                   // dwa pióra
-    w = Math.min(cfg.floorTabLen, (window - minGap) / 2);
+  const wPair = Math.min(maxW, Math.max(minW, FLOOR_WIDTH_RATIO * floorLen));
+  const maxSpread = window - wPair;               // rozstaw przy piorach na koncach
+
+  let n, spans, fits;
+  if (window > 0 && maxSpread >= wPair + minGap) {
+    // dwa pióra - rozstaw proporcjonalny, ale nie mniejszy niz realny odstep
+    // i nie wiekszy niz pozwala bezpieczna strefa
+    n = 2;
+    const spread = Math.min(Math.max(FLOOR_SPREAD_RATIO * floorLen, wPair + minGap), maxSpread);
+    spans = [
+      { start: mid - spread / 2 - wPair / 2, w: wPair },
+      { start: mid + spread / 2 - wPair / 2, w: wPair }
+    ];
+    fits = true;
   } else {
-    n = 1;                                                   // jedno, wysrodkowane
-    w = Math.min(cfg.floorTabLen, window);
+    // jedno, wysrodkowane pióro
+    n = 1;
+    const wLone = Math.min(maxW, Math.max(minW, FLOOR_LONE_RATIO * floorLen));
+    const w = Math.min(wLone, window);
+    spans = [{ start: mid - w / 2, w }];
+    fits = window >= minW;
   }
-  w = Math.max(0, w);
-
-  const free = window - n * w;
-  const gap = free / (n + 1);
-  const spans = [];
-  let d = backInset;
-  for (let i = 0; i < n; i++) { d += gap; spans.push({ start: d, w }); d += w; }
-  return { n, w, spans, fits: w >= minW && window > 0 };
+  return { n, spans, w: spans[0].w, fits };
 }
 
 // Wymiary pochodne - jedno zrodlo prawdy dla wszystkich czesci.

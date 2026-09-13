@@ -34,6 +34,14 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
 * CI (GitHub Actions) uruchamiające wszystkie trzy zestawy testów.
 
 ### Zmienione
+* **Pióra dna w pełni proporcjonalne do rozmiaru.** Zamiast dwóch piór o stałej
+  szerokości 28 mm z resztkowym odstępem (w małych rozmiarach spadał do ~2 mm —
+  cienki, słaby mostek między gniazdami), szerokość pióra skaluje się z długością
+  dna (~14 %, do 28 mm), a dwa pióra są rozsuwane na stały proporcjonalny rozstaw
+  ~34 % długości (jak w oryginale), symetrycznie w bezpiecznej strefie. Odstęp
+  między piórami rośnie z 20 mm (12 przegródek) do ~58 mm (30). Gdy dwa piór nie
+  da się sensownie rozsunąć (9 i mniej przegródek), zostaje jedno, wyśrodkowane
+  pióro — czytelniejsze i mocniejsze niż dwa ściśnięte obok siebie.
 * **Zatrzaski przy czopach** w modelu kieszeniowym: podcięcie na grubość
   materiału za czopem, zaczep z rampą po stronie zewnętrznej i sfazowane czoło
   czopa — tak jak w przykładowym projekcie. Dotyczy przegród poprzecznych oraz

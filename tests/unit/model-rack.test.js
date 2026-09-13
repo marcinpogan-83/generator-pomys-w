@@ -278,6 +278,35 @@ test('pióra dna sa adaptacyjne: zwezaja sie, a potem schodza do jednego', () =>
   assert.ok(short.fits);
 });
 
+test('rozstaw dwoch pior jest proporcjonalny i daje realny odstep', () => {
+  // Regresja: wczesniej w malych rozmiarach dwa pióra staly 2 mm od siebie
+  // (cienki, slaby mostek). Teraz rozstaw skaluje sie z dlugoscia dna, a odstep
+  // miedzy piorami jest zawsze sensowny.
+  let ratios = [];
+  for (let rows = 4; rows <= 10; rows++) {
+    const d = rackDims({ sku: 'wlasny', rows, cols: 3 });
+    if (d.floorSpec.n !== 2) continue;
+    const [a, b] = d.floorSpec.spans;
+    const c2c = (b.start + b.w / 2) - (a.start + a.w / 2);
+    const gap = b.start - (a.start + a.w);
+    ratios.push(c2c / d.floorLen);
+    assert.ok(gap >= 2 * d.cfg.t, `rows=${rows}: odstep miedzy piorami ${gap.toFixed(1)} za maly`);
+    assert.ok(a.w <= d.cfg.floorTabLen + 1e-9, `rows=${rows}: pióro szersze niz limit`);
+  }
+  // rozstaw wzgledny stały (proporcjonalny do wielkosci)
+  const spread = ratios.reduce((s, r) => s + r, 0) / ratios.length;
+  for (const r of ratios) assert.ok(Math.abs(r - spread) < 0.02, `rozstaw niestały: ${r.toFixed(3)} vs ${spread.toFixed(3)}`);
+  assert.ok(spread > 0.28 && spread < 0.42, `rozstaw poza rozsadnym zakresem: ${spread.toFixed(2)}`);
+});
+
+test('szerokosc pióra rosnie z dlugoscia dna, do limitu', () => {
+  const widths = [4, 5, 6, 8].map(rows => rackDims({ sku: 'wlasny', rows, cols: 3 }).floorSpec.w);
+  for (let i = 1; i < widths.length; i++) {
+    assert.ok(widths[i] >= widths[i - 1] - 1e-9, 'szersze dno -> szersze (lub rowne) pióro');
+  }
+  assert.ok(widths[widths.length - 1] <= RACK_DEFAULTS.floorTabLen + 1e-9, 'pióro nie przekracza limitu');
+});
+
 test('pióra dna w boku i w dnie to te same spans', () => {
   for (const rows of [3, 4, 8]) {
     const cfg = { sku: 'wlasny', rows, cols: 3 };

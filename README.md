@@ -62,12 +62,14 @@ na 24 telefony):
   w które wskakuje krawędź boku, a zewnętrzna warstwa czopa wysuwa się za nie
   z rampą ułatwiającą wciśnięcie — przegroda nie wypada z wcięcia. Czoła czopów
   są sfazowane. Zatrzaski można wyłączyć i zmienić ich wymiary,
-* **pióra dna dobierane do rozmiaru**: liczba (2 lub 1) i szerokość piór dna
-  oraz odpowiadających im gniazd w bokach są liczone z jednego źródła i
-  dopasowywane do długości dna. W małych organizerach (12–18 przegródek) pełne
-  pióra 28 mm wchodziłyby w łuk nóżek i wychodziły poza obrys ściany — teraz
-  pióra się zwężają, a przy bardzo krótkim dnie zostaje jedno, wyśrodkowane
-  pióro. Zawsze zostają nad linią łuku, w obrysie ściany,
+* **pióra dna dobierane proporcjonalnie do rozmiaru**: liczba, szerokość
+  i rozstaw piór dna (oraz odpowiadających im gniazd w bokach) są liczone
+  z jednego źródła i skalowane z długością dna. Szerokość pióra to ~14 %
+  długości (do limitu 28 mm), dwa pióra są rozsuwane symetrycznie na ~34 %
+  długości — w większych organizerach daleko od siebie (sztywność na
+  skręcanie), w mniejszych bliżej, ale zawsze z realnym odstępem. Gdy dno jest
+  za krótkie, by rozsunąć dwa pióra sensownie, zostaje jedno, wyśrodkowane.
+  Wszystkie pióra trzymają się nad linią łuku, w obrysie ściany,
 * **pochyłe dno** równoległe do szyny, **panel tylny** z numerami ostatniego
   rzędu i **panel czołowy** z nazwą szkoły i klasą.
 
