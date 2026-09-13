@@ -58,6 +58,10 @@ na 24 telefony):
   i wybranie między nimi, żeby dało się chwycić telefon,
 * **przegrody podłużne** biegną wzdłuż spadku i dzielą kieszenie na linie
   (połączenie na krzyżowy wpust ze skośnymi wpustami po stronie przegrody),
+* **zatrzaski przy czopach**: za czopem jest podcięcie na grubość materiału,
+  w które wskakuje krawędź boku, a zewnętrzna warstwa czopa wysuwa się za nie
+  z rampą ułatwiającą wciśnięcie — przegroda nie wypada z wcięcia. Czoła czopów
+  są sfazowane. Zatrzaski można wyłączyć i zmienić ich wymiary,
 * **pochyłe dno** równoległe do szyny, **panel tylny** z numerami ostatniego
   rzędu i **panel czołowy** z nazwą szkoły i klasą.
 
@@ -76,7 +80,22 @@ node tools/export-cli.mjs --model rack --set rows=12 --set cols=4 --out out/wlas
 
 Pozostałe parametry: szerokość linii, prześwit kieszeni, głębokość kieszeni,
 wystawanie przegrody ponad szynę, kąt pochylenia, osadzenie w boku, wysokość
-panelu czołowego, łuk nóżek, wymiary języczka z numerem.
+panelu czołowego, łuk nóżek, wymiary języczka z numerem, podcięcie i zaczep
+zatrzasku, sfazowanie czopa.
+
+## Numery i czcionka
+
+Numery przegródek można wystawić na dwa sposoby (pole „Numery"):
+
+| Tryb | Co trafia do pliku |
+| --- | --- |
+| **Wektor kreskowy** | jednokreskowe krzywe — wchodzą do każdej maszyny bez instalowania czcionki |
+| **Tekst w czcionce** | encja tekstu z nazwą kroju: `font-family` w SVG, tablica `STYLE` w DXF (np. `DEJAVU_SANS` → `DejaVu Sans.ttf`), atrybut `Font` w LightBurn |
+
+Nazwa czcionki z pola „Czcionka" dotyczy też nazwy szkoły i klasy. Wysokość
+numeru ustawia się osobno (`0` = dobierz automatycznie z wysokości języczka).
+Krój musi być zainstalowany w programie sterującym laserem — jeśli maszyna go
+nie ma, zostaw wektor kreskowy albo zamień tekst na krzywe w Inkscape.
 
 ## Format wyjściowy
 

@@ -3,13 +3,17 @@
 // Czesc: { name, qty, w, h, cut: [shape], engrave: [shape], texts: [{text,x,y,size}] }
 // Uklad wspolrzednych czesci: X w prawo, Y w dol, poczatek w lewym gornym rogu.
 
-import { rectPath, ring, path, panelOutline, tabSpans, keyhole, strokeNumber } from './geometry.js';
+import { rectPath, ring, path, panelOutline, tabSpans, keyhole } from './geometry.js';
+import { numberMark, DEFAULT_FONT } from './numbering.js';
 
 export const DEFAULTS = {
   sku: 'S-30', cols: 3, rows: 10,
   t: 3.0, fit: 0.15, cellW: 178, cellH: 25, depth: 90,
   headerH: 32, useHeader: true, slitW: 8, tabW: 18, tabN: 3,
   solidBack: false, solidStiffener: false,
+  numStyle: 'kreskowy',          // 'kreskowy' | 'czcionka'
+  numSize: 0,                    // 0 = domyslna wysokosc numeru
+  fontFamily: DEFAULT_FONT,      // czcionka numerow (tryb 'czcionka') i grawerow
   schoolName: 'Szkola Podstawowa nr 1', className: 'Klasa 5a'
 };
 
@@ -50,6 +54,8 @@ export function validateConfig(cfg) {
   }
   if (c.slitW >= c.cellH) err('Szczelina wgladu jest wyzsza niz przegrodka.');
   if (c.cellH < 18) warn('Przegrodka nizsza niz 18 mm - telefon w etui moze nie wejsc.');
+  if (c.numStyle !== 'kreskowy' && c.numStyle !== 'czcionka') err('Nieznany styl numeru.');
+  if (c.numStyle === 'czcionka' && !String(c.fontFamily || '').trim()) err('Podaj nazwe czcionki numerow.');
   if (c.depth < 60) warn('Glebokosc ponizej 60 mm - telefon bedzie wystawal poza korpus.');
   return out;
 }
@@ -64,7 +70,9 @@ function dividerTabW(c) {
 export function build(cfgIn) {
   const cfg = applySku(cfgIn);
   const { t, fit, cols, rows, cellW, cellH, depth, headerH, useHeader,
-          slitW, tabW, tabN, solidBack, solidStiffener, schoolName, className } = cfg;
+          slitW, tabW, tabN, solidBack, solidStiffener, fontFamily,
+          schoolName, className } = cfg;
+  const font = fontFamily || DEFAULT_FONT;
 
   const clear = 0.2;                   // luz na dlugosci czopa
   const slotT = t - fit;               // grubosc gniazda (wpust) - pasowanie ciasne
@@ -176,8 +184,8 @@ export function build(cfgIn) {
     bands.forEach((b, bi) => {
       const yTop = hy[bi] + t;                 // gorna krawedz wnetrza pasa
       if (b.header) {
-        texts.push({ text: schoolName, x: W / 2, y: yTop + b.h * 0.42, size: 9 });
-        texts.push({ text: className, x: W / 2, y: yTop + b.h * 0.78, size: 7 });
+        texts.push({ text: schoolName, x: W / 2, y: yTop + b.h * 0.42, size: 9, font });
+        texts.push({ text: className, x: W / 2, y: yTop + b.h * 0.78, size: 7, font });
         return;
       }
       for (let c = 0; c < cols; c++) {
@@ -186,8 +194,9 @@ export function build(cfgIn) {
         // numer po lewej, szczelina wgladu wysrodkowana w pozostalym polu
         const slitX = cellX + markW + numW + (cellW - markW - numW - slitLen) / 2;
         cut.push(rectPath(slitX, yMid - slitW / 2, slitLen, slitW));
-        strokeNumber(cellNo, cellX + markW / 2 + numW / 2, yMid - 5.5, 11)
-          .forEach(s => engrave.push(s));
+        const mark = numberMark(cfg, cellNo, cellX + markW / 2 + numW / 2, yMid - 5.5, 11);
+        engrave.push(...mark.shapes);
+        texts.push(...mark.texts);
         cellNo++;
       }
     });

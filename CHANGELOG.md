@@ -34,6 +34,16 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
 * CI (GitHub Actions) uruchamiające wszystkie trzy zestawy testów.
 
 ### Zmienione
+* **Zatrzaski przy czopach** w modelu kieszeniowym: podcięcie na grubość
+  materiału za czopem, zaczep z rampą po stronie zewnętrznej i sfazowane czoło
+  czopa — tak jak w przykładowym projekcie. Dotyczy przegród poprzecznych oraz
+  paneli tylnego i czołowego; można je wyłączyć i przestawić ich wymiary.
+* **Wybór czcionki numerów**: tryb „wektor kreskowy" (jak dotąd) albo „tekst
+  w czcionce" z nazwą kroju i wysokością; nazwa kroju trafia do SVG
+  (`font-family`), DXF (tablica `STYLE` z plikiem czcionki) i LightBurn
+  (atrybut `Font`) i obejmuje też grawer nazwy szkoły i klasy.
+* Poprawka UI: przełączenie pola typu checkbox nie zgłasza już błędu
+  `setSelectionRange` przy przywracaniu ogniskowania.
 * Bundler zatrzymuje build przy aliasie w imporcie (`import { x as y }`), bo
   łączy moduły w jedną przestrzeń nazw; test uruchamia zbudowany skrypt w `vm`.
 * Plik dystrybucyjny nazywa się `dist/organizer-generator.html` (generator nie

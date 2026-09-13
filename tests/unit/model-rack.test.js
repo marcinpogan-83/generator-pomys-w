@@ -119,8 +119,9 @@ test('wciecia w szynie odpowiadaja przegrodom poprzecznym', () => {
 });
 
 test('czop przegrody siedzi w wcieciu, a dol przegrody na dnie', () => {
-  const d = rackDims({});
-  const m = buildRack({});
+  const cfg = { latch: false, tabChamfer: 0 };
+  const d = rackDims(cfg);
+  const m = buildRack(cfg);
   const cross = crossPanels(m)[0];
   const { overTop, railSlot, t } = d.cfg;
   assert.equal(cross.h, d.panelH);
@@ -129,6 +130,69 @@ test('czop przegrody siedzi w wcieciu, a dol przegrody na dnie', () => {
   assert.ok(hasPoint(cross, 2 * t, overTop), 'korpus cofniety o 2t (bok + wystep)');
   // dol przegrody lezy dokladnie na dnie: panelH = overTop + glebokosc kieszeni
   assert.ok(Math.abs(d.panelH - (overTop + d.cfg.pocketDepth)) < TOL);
+});
+
+test('zatrzask podcina czop na grubosc boku i wysuwa zaczep', () => {
+  const d = rackDims({});
+  const m = buildRack({});
+  const { t, overTop, railSlot, latchGrip, latchTip } = d.cfg;
+  const cross = crossPanels(m)[0];
+  const end = overTop + railSlot;
+  // lewa krawedz: x = 0 (lico zewnetrzne), t (dno podciecia), 2t (korpus)
+  assert.ok(hasPoint(cross, t, end + latchTip), 'zaczep wysuniety poza czop');
+  assert.ok(hasPoint(cross, t, end - latchGrip), 'podciecie wchodzi w dlugosc czopa');
+  assert.ok(hasPoint(cross, 2 * t, end - latchGrip), 'podciecie siega korpusu');
+  // prawa krawedz - lustrzanie
+  assert.ok(hasPoint(cross, d.W - t, end + latchTip));
+  assert.ok(hasPoint(cross, d.W - t, end - latchGrip));
+  // podciecie ma dokladnie grubosc materialu (miejsce na bok)
+  const xs = cross.cut[0].pts.filter(q => Math.abs(q[1] - (end - latchGrip)) < 0.01).map(q => q[0]);
+  assert.ok(xs.includes(t) || xs.some(x => Math.abs(x - t) < 0.01));
+});
+
+test('panele koncowe maja zatrzask od strony wsuwania', () => {
+  const d = rackDims({});
+  const m = buildRack({});
+  const { t, overTop, latchGrip, latchTip } = d.cfg;
+  for (const p of [m.parts.find(x => x.name.startsWith('Panel tylny')), partOf(m, 'Panel czolowy')]) {
+    const y0 = overTop + 12;
+    assert.ok(hasPoint(p, t, y0 - latchTip), `${p.name}: brak zaczepu`);
+    assert.ok(hasPoint(p, t, y0 + latchGrip), `${p.name}: brak podciecia`);
+  }
+});
+
+test('wylaczenie zatrzaskow upraszcza obrys, a fazy zostaja', () => {
+  const zLatch = buildRack({});
+  const bezLatch = buildRack({ latch: false });
+  const a = crossPanels(zLatch)[0].cut[0].pts.length;
+  const b = crossPanels(bezLatch)[0].cut[0].pts.length;
+  assert.ok(b < a, 'bez zatrzaskow obrys ma mniej punktow');
+  const d = rackDims({ latch: false });
+  const cross = crossPanels(bezLatch)[0];
+  const { t, overTop, railSlot, tabChamfer } = d.cfg;
+  assert.ok(hasPoint(cross, 0, overTop + tabChamfer), 'faza wejscia zostaje');
+  assert.ok(hasPoint(cross, 0, overTop + railSlot - tabChamfer), 'faza na drugim koncu');
+  assert.ok(!hasPoint(cross, t, overTop + railSlot + d.cfg.latchTip), 'brak zaczepu');
+});
+
+test('numery mozna wystawic jako tekst w wybranej czcionce', () => {
+  const stroke = buildRack({});
+  const font = buildRack({ numStyle: 'czcionka', fontFamily: 'DejaVu Sans', numSize: 14 });
+  const a = crossPanels(stroke)[0], b = crossPanels(font)[0];
+  assert.ok(a.engrave.length >= 3 && a.texts.length === 0, 'domyslnie wektor kreskowy');
+  assert.equal(b.engrave.length, 0);
+  assert.equal(b.texts.length, 3);
+  for (const t of b.texts) {
+    assert.equal(t.font, 'DejaVu Sans');
+    assert.equal(t.size, 14);
+    assert.match(t.text, /^\d+$/);
+  }
+  // tekst klasy tez dostaje wybrana czcionke
+  const front = partOf(font, 'Panel czolowy');
+  for (const t of front.texts) assert.equal(t.font, 'DejaVu Sans');
+  // wysokosc numeru 0 = dobrana automatycznie
+  const auto = buildRack({ numStyle: 'czcionka', numSize: 0 });
+  assert.ok(crossPanels(auto)[0].texts[0].size > 0);
 });
 
 test('wpusty krzyzowe przegrod poprzecznej i podluznej zachodza na siebie', () => {
@@ -191,6 +255,9 @@ test('validateRackConfig wylapuje niemozliwe ustawienia', () => {
   assert.ok(err({ tilt: 60 }).length, 'zbyt duze pochylenie');
   assert.ok(err({ railSlot: 100 }).length, 'wciecie glebsze niz kieszen');
   assert.ok(err({ numTabW: 200 }).length, 'jezyczek szerszy niz kolumna');
+  assert.ok(err({ latchGrip: 30, latchTip: 10 }).length, 'zatrzask dluzszy niz czop');
+  assert.ok(err({ numStyle: 'inny' }).length, 'nieznany styl numeru');
+  assert.ok(err({ numStyle: 'czcionka', fontFamily: '  ' }).length, 'pusta nazwa czcionki');
   assert.ok(validateRackConfig({ pocketW: 8 }).some(i => i.level === 'warn'));
 });
 

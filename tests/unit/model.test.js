@@ -102,6 +102,28 @@ test('drzwi maja numer i szczeline dla kazdej przegrodki', () => {
   assert.ok(drzwi.engrave.length > 12, 'numery przegrodek grawerowane kreskowo');
 });
 
+test('numery drzwi moga byc tekstem w wybranej czcionce', () => {
+  const stroke = build({ sku: 'wlasny', cols: 2, rows: 3, useHeader: false });
+  const font = build({ sku: 'wlasny', cols: 2, rows: 3, useHeader: false,
+                       numStyle: 'czcionka', fontFamily: 'Times New Roman', numSize: 9 });
+  const a = stroke.parts.find(p => p.name === 'Drzwi');
+  const b = font.parts.find(p => p.name === 'Drzwi');
+  assert.ok(a.engrave.length > 6 && a.texts.length === 0);
+  assert.equal(b.texts.length, 6, 'szesc przegrodek = szesc numerow');
+  for (const t of b.texts) {
+    assert.equal(t.font, 'Times New Roman');
+    assert.equal(t.size, 9);
+  }
+  // same znaczniki zawiasow i skobla zostaja wektorem
+  assert.equal(b.engrave.length, 3);
+});
+
+test('czcionka trafia takze do naglowka drzwi', () => {
+  const m = build({ useHeader: true, fontFamily: 'Verdana' });
+  const drzwi = m.parts.find(p => p.name === 'Drzwi');
+  for (const t of drzwi.texts) assert.equal(t.font, 'Verdana');
+});
+
 test('bez naglowka nie ma tekstow na drzwiach', () => {
   const m = build({ useHeader: false });
   const drzwi = m.parts.find(p => p.name === 'Drzwi');
@@ -127,6 +149,8 @@ test('validateConfig wylapuje niemozliwe ustawienia', () => {
   assert.ok(err({ t: 0 }).length, 'zerowa grubosc');
   assert.ok(err({ depth: 40, tabN: 3, tabW: 18 }).length, 'czopy nie miesza sie na glebokosci');
   assert.ok(err({ slitW: 30, cellH: 25 }).length, 'szczelina wyzsza niz przegrodka');
+  assert.ok(err({ numStyle: 'inny' }).length, 'nieznany styl numeru');
+  assert.ok(err({ numStyle: 'czcionka', fontFamily: '' }).length, 'brak nazwy czcionki');
   assert.equal(err({}).length, 0);
 });
 

@@ -182,9 +182,65 @@ def test_model_kieszeniowy_ma_komplet_czesci(exports, name):
     assert len([n for n in poprzeczne if "kieszenie" in n]) == cfg["rows"] - 1
     assert any(n.startswith("Panel tylny") for n in nazwy)
     assert manifest["stats"]["cells"] == cfg["rows"] * cfg["cols"]
-    # numery kieszeni sa grawerowane wektorowo, wiec w DXF sa polilinie ENGRAVE
+    # numer kazdej kieszeni: wektor kreskowy (polilinie ENGRAVE) albo encja TEXT
     engrave = sum(s["counts"]["polylinesEngrave"] for s in manifest["sheets"])
-    assert engrave >= manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
+    texts = sum(s["counts"]["texts"] for s in manifest["sheets"])
+    if cfg["numStyle"] == "czcionka":
+        assert texts >= manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
+    else:
+        assert engrave >= manifest["stats"]["cells"], "kazda kieszen potrzebuje numeru"
+
+
+def test_numery_jako_tekst_uzywaja_wskazanej_czcionki(exports):
+    """Tryb 'czcionka' ma dac encje TEXT ze stylem wskazujacym krój pisma."""
+    katalog = exports["kieszeniowy-czcionka"]
+    manifest = json.loads((katalog / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["config"]["numStyle"] == "czcionka"
+    numery = set()
+    for sheet in manifest["sheets"]:
+        doc = ezdxf.readfile(katalog / sheet["dxf"])
+        style = doc.styles.get("DEJAVU_SANS")
+        assert style.dxf.font == "DejaVu Sans.ttf"
+        for e in doc.modelspace():
+            if e.dxftype() != "TEXT":
+                continue
+            assert e.dxf.style == "DEJAVU_SANS"
+            assert e.dxf.layer == "ENGRAVE"
+            if e.dxf.text.isdigit():
+                assert abs(e.dxf.height - 14) < 0.01
+                numery.add(int(e.dxf.text))
+    assert numery == set(range(1, manifest["stats"]["cells"] + 1)), "komplet numerow jako tekst"
+    # w tym trybie numery nie sa juz rysowane wektorowo
+    assert errors(validate_export(katalog)) == []
+
+
+def test_zatrzaski_zmieniaja_obrys_przegrod(exports):
+    """Wylaczenie zatrzaskow musi zmniejszyc liczbe wierzcholkow przegrod."""
+    z = json.loads((exports["kieszeniowy"] / "manifest.json").read_text(encoding="utf-8"))
+    bez = exports["kieszeniowy-bez-zatrzaskow"]
+    bez_manifest = json.loads((bez / "manifest.json").read_text(encoding="utf-8"))
+    assert z["config"]["latch"] is True
+    assert bez_manifest["config"]["latch"] is False
+
+    def wierzcholki(katalog, manifest):
+        best = None
+        for sheet in manifest["sheets"]:
+            doc = ezdxf.readfile(katalog / sheet["dxf"])
+            for e in doc.modelspace():
+                if e.dxftype() != "POLYLINE" or e.dxf.layer != "CUT":
+                    continue
+                pts = list(e.points())
+                szer = max(p[0] for p in pts) - min(p[0] for p in pts)
+                wys = max(p[1] for p in pts) - min(p[1] for p in pts)
+                if abs(szer - 318) < 2 and abs(wys - 113) < 2:
+                    best = max(best or 0, len(pts))
+        return best
+
+    z_pkt = wierzcholki(exports["kieszeniowy"], z)
+    bez_pkt = wierzcholki(bez, bez_manifest)
+    assert z_pkt and bez_pkt, "nie znaleziono obrysu przegrody poprzecznej"
+    assert z_pkt > bez_pkt, "zatrzaski musza dodac wierzcholki do obrysu"
+    assert errors(validate_export(bez)) == []
 
 
 def test_swiezy_eksport_z_linii_polecen_jest_poprawny(tmp_path):

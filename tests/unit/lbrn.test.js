@@ -86,6 +86,15 @@ test('tekst trafia do pliku z trescia i wysokoscia', () => {
   assert.ok(/H="\d/.test(xml));
 });
 
+test('wybrana czcionka trafia do atrybutu Font', () => {
+  const { model, nested } = fixture('rack', { numStyle: 'czcionka', fontFamily: 'DejaVu Sans' });
+  const xml = nested.sheets.map(s => sheetLbrn(s, model.parts, OPTS)).join('');
+  assert.ok(xml.includes('Font="DejaVu Sans,-1,100,5,50,0,0,0,0,0"'));
+  assert.ok(!xml.includes('Font="Arial'), 'brak pozostalosci domyslnej czcionki');
+  const numery = [...xml.matchAll(/Str="(\d+)"/g)].length;
+  assert.ok(numery >= model.cells, 'numery kieszeni jako teksty');
+});
+
 test('plik jest poprawnym XML-em (parser przegladarkowy w Node)', () => {
   const { model, nested } = fixture();
   const xml = sheetLbrn(nested.sheets[0], model.parts, OPTS);

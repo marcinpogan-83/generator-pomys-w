@@ -217,11 +217,13 @@ export function render() {
       else if (inp.type === 'number') target[k] = parseFloat(inp.value) || 0;
       else target[k] = inp.value;
       if (inp.dataset.scope === 'app' && k === 'modelType') state.sheetIdx = 0;
-      const pos = inp.selectionStart;
+      // pole tekstowe: po przerysowaniu wracamy kursorem w to samo miejsce
+      const pos = inp.type === 'text' ? inp.selectionStart : null;
       render();
       const again = document.querySelector(`[data-k="${k}"]`);
-      if (again && again.setSelectionRange && inp.type !== 'number') { again.focus(); again.setSelectionRange(pos, pos); }
-      else if (again) again.focus();
+      if (!again) return;
+      again.focus();
+      if (pos != null && again.setSelectionRange) again.setSelectionRange(pos, pos);
     });
   });
 

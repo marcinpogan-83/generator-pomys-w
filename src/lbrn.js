@@ -56,7 +56,7 @@ function textShape(t, cutIndex, fy) {
   const rot = t.rot ? (360 - t.rot) * Math.PI / 180 : 0;
   const cos = Math.cos(rot).toFixed(6), sin = Math.sin(rot).toFixed(6);
   return [
-    `  <Shape Type="Text" CutIndex="${cutIndex}" Font="Arial,-1,100,5,50,0,0,0,0,0"`,
+    `  <Shape Type="Text" CutIndex="${cutIndex}" Font="${esc(t.font || 'Arial')},-1,100,5,50,0,0,0,0,0"`,
     `         Str="${esc(t.text == null ? '' : t.text)}" H="${num(t.size)}" LS="0" LnS="0" Ah="1" Av="1">`,
     `    <XForm>${cos} ${sin} ${-sin} ${cos} ${num(t.x)} ${num(fy(t.y))}</XForm>`,
     '  </Shape>'

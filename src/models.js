@@ -6,6 +6,9 @@
 // dlatego importy nie moga uzywac aliasow (`as`) - nazwy sa globalne.
 import { DEFAULTS, SKU, build, validateConfig, netArea } from './model.js';
 import { RACK_DEFAULTS, RACK_SKU, buildRack, validateRackConfig } from './model-rack.js';
+import { NUM_STYLES } from './numbering.js';
+
+const NUM_STYLE_OPTIONS = Object.entries(NUM_STYLES).map(([value, label]) => ({ value, label }));
 
 const skuOptions = (sku, labelFor) =>
   Object.keys(sku).map(k => ({ value: k, label: labelFor(k) }));
@@ -44,7 +47,10 @@ export const MODELS = {
         { k: 'solidBack', label: 'Pełne plecy (wersja biurkowa)', type: 'checkbox' },
         { k: 'solidStiffener', label: 'Pełna ramka drzwi', type: 'checkbox' }
       ] },
-      { legend: 'Grawer', fields: [
+      { legend: 'Numery i grawer', fields: [
+        { k: 'numStyle', label: 'Numery przegródek', type: 'select', options: NUM_STYLE_OPTIONS },
+        { k: 'numSize', label: 'Wysokość numeru (mm, 0 = auto)', type: 'number', step: 0.5, half: true },
+        { k: 'fontFamily', label: 'Czcionka', type: 'text', half: true },
         { k: 'schoolName', label: 'Nazwa szkoły', type: 'text' },
         { k: 'className', label: 'Klasa', type: 'text' }
       ] }
@@ -83,9 +89,18 @@ export const MODELS = {
         { k: 'frontDrop', label: 'Wysokość panelu czołowego (mm)', type: 'number', half: true },
         { k: 'footH', label: 'Łuk nóżek (mm)', type: 'number', half: true }
       ] },
+      { legend: 'Zatrzaski', fields: [
+        { k: 'latch', label: 'Zatrzaski przy czopach', type: 'checkbox' },
+        { k: 'latchGrip', label: 'Podcięcie zatrzasku (mm)', type: 'number', step: 0.5, half: true },
+        { k: 'latchTip', label: 'Wysunięcie zaczepu (mm)', type: 'number', step: 0.5, half: true },
+        { k: 'tabChamfer', label: 'Sfazowanie czopa (mm)', type: 'number', step: 0.5 }
+      ] },
       { legend: 'Numery i grawer', fields: [
         { k: 'numTabW', label: 'Szerokość języczka (mm)', type: 'number', half: true },
         { k: 'scoopH', label: 'Wysokość języczka (mm)', type: 'number', half: true },
+        { k: 'numStyle', label: 'Numery kieszeni', type: 'select', options: NUM_STYLE_OPTIONS },
+        { k: 'numSize', label: 'Wysokość numeru (mm, 0 = auto)', type: 'number', step: 0.5, half: true },
+        { k: 'fontFamily', label: 'Czcionka', type: 'text', half: true },
         { k: 'schoolName', label: 'Nazwa szkoły', type: 'text' },
         { k: 'className', label: 'Klasa', type: 'text' }
       ] }

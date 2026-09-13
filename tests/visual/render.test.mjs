@@ -206,6 +206,42 @@ test('formularz pokazuje pola wlasciwe dla wybranego modelu', { skip }, async ()
   });
 });
 
+test('przelaczniki numerow i zatrzaskow dzialaja bez bledow', { skip }, async () => {
+  await withPage(async (page, problems) => {
+    await page.selectOption('[data-k="modelType"]', 'rack');
+    await page.waitForSelector('#preview svg');
+    const przed = await page.evaluate(() => {
+      const cross = window.ORGANIZER.model.parts.find(p => /^Przegroda \d+ /.test(p.name));
+      return { eng: cross.engrave.length, txt: cross.texts.length, pkt: cross.cut[0].pts.length };
+    });
+    assert.ok(przed.eng > 0 && przed.txt === 0, 'domyslnie numery wektorowe');
+
+    await page.selectOption('[data-k="numStyle"]', 'czcionka');
+    await page.waitForSelector('#preview svg');
+    await page.fill('[data-k="fontFamily"]', 'Georgia');
+    await page.waitForSelector('#preview svg');
+    const czcionka = await page.evaluate(() => {
+      const cross = window.ORGANIZER.model.parts.find(p => /^Przegroda \d+ /.test(p.name));
+      return { eng: cross.engrave.length, txt: cross.texts.length, font: cross.texts[0] && cross.texts[0].font,
+               svg: document.querySelector('#TEXT').innerHTML };
+    });
+    assert.equal(czcionka.eng, 0);
+    assert.ok(czcionka.txt > 0);
+    assert.equal(czcionka.font, 'Georgia');
+    assert.ok(czcionka.svg.includes('Georgia'), 'czcionka musi trafic do podgladu');
+
+    await page.uncheck('[data-k="latch"]');
+    await page.waitForSelector('#preview svg');
+    const bezZatrzaskow = await page.evaluate(() => {
+      const cross = window.ORGANIZER.model.parts.find(p => /^Przegroda \d+ /.test(p.name));
+      return { pkt: cross.cut[0].pts.length, issues: window.ORGANIZER.issues };
+    });
+    assert.ok(bezZatrzaskow.pkt < przed.pkt, 'bez zatrzaskow obrys jest prostszy');
+    assert.deepEqual(bezZatrzaskow.issues, []);
+    assert.deepEqual(problems, [], 'przelaczniki nie moga zglaszac bledow');
+  });
+});
+
 test('raster podgladu zgadza sie z wzorcem', { skip }, async () => {
   await withPage(async (page) => {
     const signatures = {};

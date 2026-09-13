@@ -4,7 +4,7 @@ import { build } from '../../src/model.js';
 import { buildModel, modelDefaults } from '../../src/models.js';
 import { nest } from '../../src/nest.js';
 import { sheetSvg, shapeToPath, escapeXml } from '../../src/svg.js';
-import { sheetDxf, sheetManifest, DXF_VERSION } from '../../src/dxf.js';
+import { sheetDxf, sheetManifest, DXF_VERSION, styleName } from '../../src/dxf.js';
 import { placedSheet } from '../../src/layout.js';
 import { parseTags, sections, entities, layerOf, isClosed, tagValue } from '../helpers/dxf.mjs';
 
@@ -165,6 +165,51 @@ test('eksport modelu kieszeniowego jest spojny z manifestem', () => {
       for (const v of e.vertices) {
         assert.ok(v.x >= -1e-6 && v.x <= OPTS.sheetW + 1e-6 && v.y >= -1e-6 && v.y <= OPTS.sheetH + 1e-6);
       }
+    }
+  }
+});
+
+test('SVG: numery jako tekst niosa wybrana czcionke', () => {
+  const model = buildModel('rack', { ...modelDefaults('rack'),
+    numStyle: 'czcionka', fontFamily: 'DejaVu Sans' });
+  const nested = nest(model.parts, OPTS);
+  const svg = nested.sheets.map(s => sheetSvg(s, model.parts, OPTS)).join('');
+  assert.ok(svg.includes('font-family="DejaVu Sans, Helvetica, sans-serif"'));
+  const texts = nested.reduce ? 0 : nested.sheets.reduce((a, s) =>
+    a + sheetManifest(s, model.parts, OPTS).counts.texts, 0);
+  assert.ok(texts >= model.cells, 'kazda kieszen ma numer jako tekst');
+});
+
+test('DXF: styl tekstu wskazuje wybrana czcionke', () => {
+  const model = buildModel('rack', { ...modelDefaults('rack'),
+    numStyle: 'czcionka', fontFamily: 'DejaVu Sans' });
+  const nested = nest(model.parts, OPTS);
+  const expected = styleName('DejaVu Sans');
+  assert.equal(expected, 'DEJAVU_SANS');
+  let found = 0;
+  for (const sheet of nested.sheets) {
+    const dxf = sheetDxf(sheet, model.parts, OPTS);
+    const sec = sections(parseTags(dxf));
+    const ents = entities(sec.ENTITIES).filter(e => e.type === 'TEXT');
+    if (!ents.length) continue;
+    found += ents.length;
+    const names = sec.TABLES.filter(t => t[0] === 2).map(t => t[1]);
+    assert.ok(names.includes(expected), 'tablica stylow musi zawierac czcionke');
+    assert.ok(sec.TABLES.some(t => t[0] === 3 && t[1] === 'DejaVu Sans.ttf'), 'plik czcionki w stylu');
+    for (const e of ents) assert.equal(tagValue(e, 7), expected);
+  }
+  assert.ok(found > 0, 'brak tekstow w eksporcie');
+});
+
+test('DXF: styl tekstu odpowiada czcionce z konfiguracji, STANDARD zawsze istnieje', () => {
+  const { model, nested } = fixture();      // domyslna czcionka Arial
+  for (const sheet of nested.sheets) {
+    const sec = sections(parseTags(sheetDxf(sheet, model.parts, OPTS)));
+    const names = sec.TABLES.filter(t => t[0] === 2).map(t => t[1]);
+    assert.ok(names.includes('STANDARD'), 'styl domyslny musi byc zdefiniowany');
+    for (const e of entities(sec.ENTITIES).filter(x => x.type === 'TEXT')) {
+      assert.equal(tagValue(e, 7), styleName('Arial'));
+      assert.ok(names.includes(styleName('Arial')));
     }
   }
 });

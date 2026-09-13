@@ -35,7 +35,27 @@ function header(e, bounds) {
   e.tag(0, 'ENDSEC');
 }
 
-function tables(e) {
+// Nazwa stylu DXF R12: bez spacji i znakow specjalnych, wielkimi literami.
+export function styleName(font) {
+  const raw = String(font || '').trim();
+  if (!raw) return 'STANDARD';
+  const name = raw.toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 31);
+  return name || 'STANDARD';
+}
+
+// Style uzywane przez teksty arkusza (zawsze z domyslnym STANDARD).
+function stylesOf(placed) {
+  const styles = new Map([['STANDARD', 'txt']]);
+  for (const part of placed) {
+    for (const t of part.texts) {
+      if (!t.font) continue;
+      styles.set(styleName(t.font), `${t.font}.ttf`);
+    }
+  }
+  return styles;
+}
+
+function tables(e, styles) {
   e.tag(0, 'SECTION'); e.tag(2, 'TABLES');
 
   e.tag(0, 'TABLE'); e.tag(2, 'LTYPE'); e.tag(70, 1);
@@ -49,10 +69,12 @@ function tables(e) {
   }
   e.tag(0, 'ENDTAB');
 
-  e.tag(0, 'TABLE'); e.tag(2, 'STYLE'); e.tag(70, 1);
-  e.tag(0, 'STYLE'); e.tag(2, 'STANDARD'); e.tag(70, 0);
-  e.num(40, 0); e.num(41, 1); e.num(50, 0); e.tag(71, 0); e.num(42, 2.5);
-  e.tag(3, 'txt'); e.tag(4, '');
+  e.tag(0, 'TABLE'); e.tag(2, 'STYLE'); e.tag(70, styles.size);
+  for (const [name, file] of styles) {
+    e.tag(0, 'STYLE'); e.tag(2, name); e.tag(70, 0);
+    e.num(40, 0); e.num(41, 1); e.num(50, 0); e.tag(71, 0); e.num(42, 2.5);
+    e.tag(3, file); e.tag(4, '');
+  }
   e.tag(0, 'ENDTAB');
 
   e.tag(0, 'ENDSEC');
@@ -76,7 +98,7 @@ export function sheetDxf(sheet, parts, opts) {
     : { minX: 0, minY: 0, maxX: opts.sheetW || 0, maxY: sheetH };
 
   header(e, bounds);
-  tables(e);
+  tables(e, stylesOf(placed));
 
   e.tag(0, 'SECTION'); e.tag(2, 'ENTITIES');
 
@@ -95,7 +117,7 @@ export function sheetDxf(sheet, parts, opts) {
     for (const s of part.cut) polyline(s, LAYER_CUT);
     for (const s of part.engrave) polyline(s, LAYER_ENGRAVE);
     for (const t of part.texts) {
-      e.tag(0, 'TEXT'); e.tag(8, LAYER_ENGRAVE); e.tag(7, 'STANDARD');
+      e.tag(0, 'TEXT'); e.tag(8, LAYER_ENGRAVE); e.tag(7, styleName(t.font));
       e.num(10, t.x); e.num(20, fy(t.y)); e.num(30, 0);
       e.num(40, t.size);
       e.tag(1, String(t.text == null ? '' : t.text));

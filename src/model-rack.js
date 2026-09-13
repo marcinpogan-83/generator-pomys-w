@@ -18,7 +18,8 @@
 //            \  |  |  |  |  |  \        pomiedzy nimi - kieszen na telefon
 //             \_|__|__|__|__|___\       dno pochylone rownolegle do szyny
 
-import { ring, path, rectPath, tabSpans, strokeNumber } from './geometry.js';
+import { ring, path, rectPath, tabSpans } from './geometry.js';
+import { numberMark, DEFAULT_FONT } from './numbering.js';
 
 export const RACK_DEFAULTS = {
   t: 3.0, fit: 0.15,
@@ -37,6 +38,13 @@ export const RACK_DEFAULTS = {
   floorTabLen: 28,     // dlugosc czopow dna
   footH: 15,           // wysokosc luku (nozek) w dolnej krawedzi boku
   underFloor: 3,       // ile bok wystaje ponizej dna z przodu
+  latch: true,         // zatrzaski przy czopach
+  latchGrip: 3,        // ile zatrzask wchodzi w dlugosc czopa
+  latchTip: 2,         // ile warstwa zewnetrzna wystaje za czop
+  tabChamfer: 1.5,     // sfazowanie czola czopa (ulatwia wsuniecie)
+  numStyle: 'kreskowy',          // 'kreskowy' | 'czcionka'
+  numSize: 0,                    // 0 = dobierz z wysokosci jezyczka
+  fontFamily: DEFAULT_FONT,      // czcionka numerow (tryb 'czcionka') i grawerow
   schoolName: 'Szkola Podstawowa nr 1', className: 'Klasa 6'
 };
 
@@ -114,6 +122,14 @@ export function validateRackConfig(cfgIn) {
     err('Czopy dna nie miesza sie na dlugosci dna.');
   }
   if (c.footH >= c.underFloor + c.pocketDepth) warn('Luk nozek siega powyzej dna.');
+  if (c.latch) {
+    if (c.latchGrip + c.latchTip >= c.railSlot) err('Zatrzask jest dluzszy niz osadzenie czopa w boku.');
+    if (c.latchGrip + c.latchTip >= c.endTabH) err('Zatrzask jest dluzszy niz czop panelu koncowego.');
+    if (c.latchGrip < c.t / 2) warn('Plytki zatrzask - polaczenie moze nie trzymac.');
+  }
+  if (c.tabChamfer * 2 >= c.railSlot) err('Sfazowanie czola czopa jest wieksze niz sam czop.');
+  if (c.numStyle !== 'kreskowy' && c.numStyle !== 'czcionka') err('Nieznany styl numeru.');
+  if (c.numStyle === 'czcionka' && !String(c.fontFamily || '').trim()) err('Podaj nazwe czcionki numerow.');
   return out;
 }
 
@@ -136,6 +152,7 @@ export function buildRack(cfgIn) {
           divH, divOverRail, lapPanel, lapDiv, divX, floorLen, runX } = dims;
   const { t, fit, rows, cols, cellW, railSlot, overTop, pocketDepth, numTabW,
           numTabOffset, scoopH, frontDrop, endTabH, floorTabLen, footH,
+          latch, latchGrip, latchTip, tabChamfer, fontFamily,
           schoolName, className } = cfg;
 
   const clear = 0.2;
@@ -192,6 +209,41 @@ export function buildRack(cfgIn) {
   // X = szerokosc, Y = wysokosc (0 = szczyt jezyczkow).
   const cellX = (c) => 2 * t + c * (cellW + t);
 
+  // Profil czopa na krawedzi bocznej. Czop wystaje o 2t: pierwsze t siedzi
+  // w materiale boku, drugie t zostaje na zewnatrz. Zatrzask to podciecie
+  // (glebokosc t, wysokosc latchGrip + latchTip) tuz za czopem - material boku
+  // wskakuje w podciecie i blokuje przegrode, a warstwa zewnetrzna z rampa
+  // przytrzymuje ja od zewnatrz.
+  const tabProfile = (xBody, dir, y0, y1, latchAt) => {
+    const xOut = xBody + dir * 2 * t;
+    const xMid = xBody + dir * t;
+    const ch = Math.max(0, Math.min(tabChamfer, (y1 - y0) / 3));
+    const pts = [];
+    if (latch && latchAt === 'start') {
+      pts.push([xBody, y0 + latchGrip]);
+      pts.push([xMid, y0 + latchGrip]);
+      pts.push([xMid, y0 - latchTip]);
+      pts.push([xOut - dir * 0.6 * t, y0 - latchTip]);
+      pts.push([xOut, y0]);
+    } else {
+      pts.push([xBody, y0]);
+      pts.push([xOut - dir * ch, y0]);
+      pts.push([xOut, y0 + ch]);
+    }
+    if (latch && latchAt === 'end') {
+      pts.push([xOut, y1]);
+      pts.push([xOut - dir * 0.6 * t, y1 + latchTip]);
+      pts.push([xMid, y1 + latchTip]);
+      pts.push([xMid, y1 - latchGrip]);
+      pts.push([xBody, y1 - latchGrip]);
+    } else {
+      pts.push([xOut, y1 - ch]);
+      pts.push([xOut - dir * ch, y1]);
+      pts.push([xBody, y1]);
+    }
+    return pts;
+  };
+
   const crossOutline = (height, opts) => {
     const { sideTabs, lapSlots } = opts;
     const pts = [];
@@ -205,19 +257,13 @@ export function buildRack(cfgIn) {
     pts.push([2 * t + IW, scoopH]);
     // prawa krawedz z czopami
     for (const tab of sideTabs) {
-      pts.push([2 * t + IW, tab.y]);
-      pts.push([W, tab.y]);
-      pts.push([W, tab.y + tab.h]);
-      pts.push([2 * t + IW, tab.y + tab.h]);
+      pts.push(...tabProfile(2 * t + IW, +1, tab.y, tab.y + tab.h, tab.latchAt));
     }
     pts.push([2 * t + IW, height]);
     pts.push([2 * t, height]);
     // lewa krawedz z czopami (od dolu do gory)
     for (const tab of [...sideTabs].reverse()) {
-      pts.push([2 * t, tab.y + tab.h]);
-      pts.push([0, tab.y + tab.h]);
-      pts.push([0, tab.y]);
-      pts.push([2 * t, tab.y]);
+      pts.push(...tabProfile(2 * t, -1, tab.y, tab.y + tab.h, tab.latchAt).reverse());
     }
     const cut = [ring(pts)];
     // wpusty krzyzowe od dolnej krawedzi
@@ -235,30 +281,34 @@ export function buildRack(cfgIn) {
     return Array.from({ length: cols }, (_, c) => (pocket - 1) * cols + c + 1);
   };
 
-  const engraveNumbers = (numbers) => {
-    const engrave = [];
+  // Numery kieszeni: wektor kreskowy albo tekst w wybranej czcionce.
+  const numberMarks = (numbers) => {
+    const engrave = [], texts = [];
     numbers.forEach((n, c) => {
       const cx = cellX(c) + numTabOffset + numTabW / 2;
-      strokeNumber(n, cx, 5, scoopH * 0.62).forEach(s => engrave.push(s));
+      const mark = numberMark(cfg, n, cx, 5, scoopH * 0.62);
+      engrave.push(...mark.shapes);
+      texts.push(...mark.texts);
     });
-    return engrave;
+    return { engrave, texts };
   };
 
   for (let k = 1; k < rows; k++) {
     const numbers = numbersFor(k);
     const cut = crossOutline(panelH, {
-      sideTabs: [{ y: overTop, h: railSlot }],
+      sideTabs: [{ y: overTop, h: railSlot, latchAt: 'end' }],
       lapSlots: true
     });
+    const mark = numberMarks(numbers);
     add(`Przegroda ${k} (kieszenie ${numbers[0]}-${numbers[numbers.length - 1]})`,
-        1, W, panelH, cut, engraveNumbers(numbers));
+        1, W, panelH, cut, mark.engrave, mark.texts);
   }
 
   // --- PANEL TYLNY -----------------------------------------------------------
   {
     const height = overTop + sideH - railY(panelX[0]);
     const cut = crossOutline(height, {
-      sideTabs: backTabYs.map(dy => ({ y: overTop + dy, h: endTabH })),
+      sideTabs: backTabYs.map(dy => ({ y: overTop + dy, h: endTabH, latchAt: 'start' })),
       lapSlots: false
     });
     // gniazda czopow przegrod podluznych
@@ -266,32 +316,28 @@ export function buildRack(cfgIn) {
       cut.push(rectPath(cx - slotT / 2, overTop + divOverRail, slotT, endTabH));
     }
     const numbers = numbersFor(0);
+    const mark = numberMarks(numbers);
     add(`Panel tylny (kieszenie ${numbers[0]}-${numbers[numbers.length - 1]})`,
-        1, W, height, cut, engraveNumbers(numbers));
+        1, W, height, cut, mark.engrave, mark.texts);
   }
 
   // --- PANEL CZOLOWY ---------------------------------------------------------
   {
     const height = overTop + frontDrop;
+    const tab = { y: overTop + 12, h: endTabH, latchAt: 'start' };
     const pts = [[2 * t, 0], [2 * t + IW, 0]];
-    const tab = { y: overTop + 12, h: endTabH };
-    pts.push([2 * t + IW, tab.y]);
-    pts.push([W, tab.y]);
-    pts.push([W, tab.y + tab.h]);
-    pts.push([2 * t + IW, tab.y + tab.h]);
+    pts.push(...tabProfile(2 * t + IW, +1, tab.y, tab.y + tab.h, tab.latchAt));
     pts.push([2 * t + IW, height]);
     pts.push([2 * t, height]);
-    pts.push([2 * t, tab.y + tab.h]);
-    pts.push([0, tab.y + tab.h]);
-    pts.push([0, tab.y]);
-    pts.push([2 * t, tab.y]);
+    pts.push(...tabProfile(2 * t, -1, tab.y, tab.y + tab.h, tab.latchAt).reverse());
     const cut = [ring(pts)];
     for (const cx of divX) {
       cut.push(rectPath(cx - slotT / 2, overTop + divOverRail, slotT, endTabH));
     }
+    const font = fontFamily || DEFAULT_FONT;
     const texts = [
-      { text: schoolName, x: W / 2, y: height * 0.42, size: 9 },
-      { text: className, x: W / 2, y: height * 0.78, size: 13 }
+      { text: schoolName, x: W / 2, y: height * 0.42, size: 9, font },
+      { text: className, x: W / 2, y: height * 0.78, size: 13, font }
     ];
     add('Panel czolowy', 1, W, height, cut, [], texts);
   }
