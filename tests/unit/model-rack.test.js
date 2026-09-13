@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRack, rackDims, validateRackConfig, RACK_SKU, RACK_DEFAULTS } from '../../src/model-rack.js';
+import { buildRack, rackDims, validateRackConfig, floorTabSpec, RACK_SKU, RACK_DEFAULTS } from '../../src/model-rack.js';
 import { shapeSegments } from '../../src/geometry.js';
-import { segKey, selfIntersects, boundsOf } from '../helpers/geom.mjs';
+import { segKey, selfIntersects, boundsOf, pointInPolygon, distToPolygon } from '../helpers/geom.mjs';
 
 const TOL = 1e-6;
 const partOf = (m, name) => m.parts.find(p => p.name === name);
@@ -244,6 +244,59 @@ test('bok ma gniazda paneli koncowych i pochylone gniazda dna', () => {
     assert.ok(Math.abs(mid[1] - (d.floorY(mid[0]) + d.cfg.t / 2)) < 1.5,
       'gniazdo dna musi lezec na linii dna');
   }
+});
+
+test('gniazda dna mieszcza sie w obrysie boku dla malych i duzych rozmiarow', () => {
+  // Regresja: w organizerach na 18/15/12 przegrodek przednie gniazdo dna
+  // wchodzilo w luk nozek i wychodzilo poza obrys boku.
+  for (let rows = 3; rows <= 10; rows++) {
+    const m = buildRack({ sku: 'wlasny', rows, cols: 3 });
+    assert.deepEqual(m.issues.filter(i => i.level === 'error'), [], `rows=${rows}`);
+    const bok = partOf(m, 'Bok');
+    const outline = bok.cut[0].pts;
+    const slots = bok.cut.slice(4);          // po obrysie i 3 gniazdach paneli
+    assert.ok(slots.length >= 1, `rows=${rows}: brak gniazd dna`);
+    for (const s of slots) {
+      for (const p of s.pts) {
+        assert.ok(pointInPolygon(p, outline), `rows=${rows}: gniazdo dna poza obrysem boku (${p})`);
+        assert.ok(distToPolygon(p, outline) > 0.5, `rows=${rows}: gniazdo dna za blisko krawedzi`);
+      }
+    }
+  }
+});
+
+test('pióra dna sa adaptacyjne: zwezaja sie, a potem schodza do jednego', () => {
+  // dlugie dno -> dwa pełne pióra; krotkie -> wezsze; bardzo krotkie -> jedno
+  const long = floorTabSpec(200, RACK_DEFAULTS);
+  const mid = floorTabSpec(99, RACK_DEFAULTS);
+  const short = floorTabSpec(60, RACK_DEFAULTS);
+  assert.equal(long.n, 2);
+  assert.equal(long.w, RACK_DEFAULTS.floorTabLen, 'dlugie dno: pełna szerokosc pióra');
+  assert.equal(mid.n, 2);
+  assert.ok(mid.w < RACK_DEFAULTS.floorTabLen && mid.fits, 'srednie dno: zwezone pióra');
+  assert.equal(short.n, 1, 'krotkie dno: jedno pióro');
+  assert.ok(short.fits);
+});
+
+test('pióra dna w boku i w dnie to te same spans', () => {
+  for (const rows of [3, 4, 8]) {
+    const cfg = { sku: 'wlasny', rows, cols: 3 };
+    const d = rackDims(cfg);
+    const m = buildRack(cfg);
+    const bok = partOf(m, 'Bok');
+    const dno = partOf(m, 'Dno (pochyle)');
+    const floorSlots = bok.cut.slice(4);
+    assert.equal(floorSlots.length, d.floorSpec.n, `rows=${rows}: liczba gniazd = liczba pior`);
+    // liczba jezyczkow (pior) w dnie: kazde pióro to 4 dodatkowe punkty na kazdej krawedzi
+    const dnoPts = dno.cut[0].pts.length;
+    assert.equal(dnoPts, 4 + 8 * d.floorSpec.n, `rows=${rows}: obrys dna`);
+  }
+});
+
+test('bardzo krotkie dno jest zglaszane jako blad, nie tnie sie po cichu', () => {
+  const m = buildRack({ sku: 'wlasny', rows: 2, cols: 3 });
+  assert.ok(m.issues.some(i => i.level === 'error' && /dno/i.test(i.msg)),
+    'za krotkie dno musi dac czytelny blad');
 });
 
 test('validateRackConfig wylapuje niemozliwe ustawienia', () => {

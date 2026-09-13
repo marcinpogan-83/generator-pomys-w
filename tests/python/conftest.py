@@ -26,6 +26,8 @@ EXPORTS = {
                              "--set", "numStyle=czcionka", "--set", "fontFamily=DejaVu Sans",
                              "--set", "numSize=14"],
     "kieszeniowy-bez-zatrzaskow": ["--model", "rack", "--set", "rows=5", "--set", "latch=false"],
+    "kieszeniowy-maly-12": ["--model", "rack", "--sku", "R-12"],
+    "kieszeniowy-maly-9": ["--model", "rack", "--set", "rows=3", "--set", "cols=3"],
 }
 
 RACK_EXPORTS = [name for name in EXPORTS if name.startswith("kieszeniowy")]

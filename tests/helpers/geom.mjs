@@ -43,3 +43,27 @@ export function segKey(a, b) {
   const k1 = `${f(a[0])},${f(a[1])}`, k2 = `${f(b[0])},${f(b[1])}`;
   return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
 }
+
+// Czy punkt lezy wewnatrz wieloboku (parzystosc przeciec promienia).
+export function pointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if (((yi > pt[1]) !== (yj > pt[1])) &&
+        (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
+// Najmniejsza odleglosc punktu do krawedzi wieloboku.
+export function distToPolygon(pt, poly) {
+  const seg = (p, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+    let t = L2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  };
+  let m = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) m = Math.min(m, seg(pt, poly[j], poly[i]));
+  return m;
+}

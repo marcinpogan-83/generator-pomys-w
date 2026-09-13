@@ -57,6 +57,14 @@ Format: kolejne wpisy odpowiadają commitom na gałęzi rozwojowej.
   przesunięte — znaczniki nie nachodzą już na numery.
 
 ### Naprawione
+* **Pióra dna wychodzące poza obrys ściany w małych organizerach.** Przy 12/15/18
+  przegródkach przednie gniazdo dna wchodziło w łuk nóżek i przekraczało krawędź
+  boku (przy 9 wypływ ~0,9 mm, przy 12 prześwit ~0,2 mm). Liczba i szerokość
+  piór dna oraz gniazd w bokach są teraz liczone z jednego źródła (`floorTabSpec`)
+  i dopasowywane do długości dna: pióra zwężają się, trzymają nad linią łuku, a
+  gdy dwa się nie mieszczą — zostaje jedno, wyśrodkowane. Prześwit do krawędzi
+  ≥2 mm dla wszystkich rozmiarów od 12 przegródek w górę; skrajnie krótkie dno
+  daje czytelny błąd zamiast wadliwej geometrii. Dodano warianty R-12 i R-18.
 * Otwarte ścieżki (kreski cyfr, półzakładki) nie są domykane — laser nie tnie
   drugi raz po krawędzi płyty, a cyfry 1, 2, 4, 7 nie mają fałszywej kreski.
 * Otwór kluczowy to jeden kontur (suma koła i rowka) zamiast dwóch nachodzących

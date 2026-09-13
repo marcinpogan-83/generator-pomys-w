@@ -18,7 +18,7 @@
 //            \  |  |  |  |  |  \        pomiedzy nimi - kieszen na telefon
 //             \_|__|__|__|__|___\       dno pochylone rownolegle do szyny
 
-import { ring, path, rectPath, tabSpans } from './geometry.js';
+import { ring, path, rectPath } from './geometry.js';
 import { numberMark, DEFAULT_FONT } from './numbering.js';
 
 export const RACK_DEFAULTS = {
@@ -49,10 +49,12 @@ export const RACK_DEFAULTS = {
 };
 
 export const RACK_SKU = {
+  'R-12': { rows: 4, cols: 3 },
+  'R-15': { rows: 5, cols: 3 },
+  'R-18': { rows: 6, cols: 3 },
   'R-24': { rows: 8, cols: 3 },
   'R-30': { rows: 10, cols: 3 },
   'R-32': { rows: 8, cols: 4 },
-  'R-15': { rows: 5, cols: 3 },
   'wlasny': null
 };
 
@@ -64,6 +66,56 @@ export function applyRackSku(cfg) {
 }
 
 const rad = (deg) => deg * Math.PI / 180;
+
+// Pióra dna (i odpowiadajace im gniazda w bokach) - jedno zrodlo prawdy, zeby
+// bok i dno zawsze pasowaly. Liczba i szerokosc pior sa dobierane do dlugosci
+// dna: dla krotkich organizerow (mniej rzedow) dwa sztywne pióra 28 mm wchodzily
+// w luk nozek i wychodzily poza obrys boku, dlatego pióra sie zwezaja, a gdy
+// nadal sie nie mieszcza - zostaje jedno, wysrodkowane pióro.
+//
+// Zwraca spans w ukladzie "wzdluz spadku" (u=0 przy panelu tylnym); ten sam
+// uklad ma dolna krawedz dna, wiec spans trafiaja wprost do obu czesci.
+//   backInset / frontInset - odstep od tylnej i przedniej krawedzi dna;
+//   frontInset jest wiekszy, bo przy przednim narozniku lico dna schodzi tuz
+//   nad dolna krawedz boku i pióro musi zostac od niej odsuniete.
+export function floorTabSpec(floorLen, cfg) {
+  const t = cfg.t;
+  const slotT = t - (cfg.fit || 0);
+  const th = rad(cfg.tilt);
+  const cos = Math.cos(th), slope = Math.tan(th);
+  const backInset = Math.max(3, t);
+  const minGap = Math.max(6, 2 * t);
+  const minW = Math.max(8, 3 * t);
+
+  // Przedni koniec dna schodzi tuz nad dolna krawedz boku, a w srodku tej
+  // krawedzi jest luk nozek (material tylko do y = sideH - footH). Zeby pióro
+  // nie trafilo w luk ani nie przekroczylo dolu, jego lico musi zostac ponad
+  // ta linia: floorY(x) + slotT <= sideH - footH - margin, co daje minimalny
+  // odstep od przedniej krawedzi (wzdluz spadku).
+  const marginBelow = 1.5;
+  const dropNeeded = Math.max(0, cfg.footH - cfg.underFloor + slotT + marginBelow);
+  const archInset = slope > 0 ? Math.max(0, (dropNeeded / slope - 2 * t) / cos) : 0;
+  const frontInset = Math.max(Math.max(12, 4 * t), archInset);
+
+  const window = floorLen - backInset - frontInset;
+
+  let n, w;
+  if (window >= 2 * minW + minGap) {
+    n = 2;                                                   // dwa pióra
+    w = Math.min(cfg.floorTabLen, (window - minGap) / 2);
+  } else {
+    n = 1;                                                   // jedno, wysrodkowane
+    w = Math.min(cfg.floorTabLen, window);
+  }
+  w = Math.max(0, w);
+
+  const free = window - n * w;
+  const gap = free / (n + 1);
+  const spans = [];
+  let d = backInset;
+  for (let i = 0; i < n; i++) { d += gap; spans.push({ start: d, w }); d += w; }
+  return { n, w, spans, fits: w >= minW && window > 0 };
+}
 
 // Wymiary pochodne - jedno zrodlo prawdy dla wszystkich czesci.
 export function rackDims(cfgIn) {
@@ -92,9 +144,10 @@ export function rackDims(cfgIn) {
   // dlugosc wzdluz spadku miedzy panelem tylnym a czolowym
   const runX = panelX[c.rows] - (panelX[0] + c.t);
   const floorLen = runX / Math.cos(th);               // dno i gorna krawedz przegrody
+  const floorSpec = floorTabSpec(floorLen, c);        // wspolne pióra dna dla boku i dna
   return {
     cfg: c, th, slope, pitch, IW, W, D, panelX, railY, floorY, sideH, panelH,
-    divH, divOverRail, overlap, lapPanel, lapDiv, divX, floorLen, runX
+    divH, divOverRail, overlap, lapPanel, lapDiv, divX, floorLen, runX, floorSpec
   };
 }
 
@@ -118,8 +171,8 @@ export function validateRackConfig(cfgIn) {
   if (c.frontDrop >= c.pocketDepth) warn('Panel czolowy zaslania cala kieszen - telefonu nie da sie wyjac.');
   if (d.lapPanel >= d.panelH) err('Zaklad przegrod jest wyzszy niz przegroda poprzeczna.');
   if (d.divH <= d.lapDiv) err('Przegroda podluzna jest nizsza niz jej wlasny wpust.');
-  if (tabSpans(d.floorLen, 2, c.floorTabLen).length !== 2) {
-    err('Czopy dna nie miesza sie na dlugosci dna.');
+  if (!d.floorSpec.fits) {
+    err('Dno jest za krotkie na pióra - zwieksz liczbe rzedow, zmniejsz luk nozek albo kat pochylenia.');
   }
   if (c.footH >= c.underFloor + c.pocketDepth) warn('Luk nozek siega powyzej dna.');
   if (c.latch) {
@@ -149,7 +202,7 @@ function tiltedSlot(px, py, qx, qy, w) {
 export function buildRack(cfgIn) {
   const dims = rackDims(cfgIn);
   const { cfg, th, IW, W, D, panelX, railY, floorY, sideH, panelH,
-          divH, divOverRail, lapPanel, lapDiv, divX, floorLen, runX } = dims;
+          divH, divOverRail, lapPanel, lapDiv, divX, floorLen, runX, floorSpec } = dims;
   const { t, fit, rows, cols, cellW, railSlot, overTop, pocketDepth, numTabW,
           numTabOffset, scoopH, frontDrop, endTabH, floorTabLen, footH,
           latch, latchGrip, latchTip, tabChamfer, fontFamily,
@@ -197,9 +250,11 @@ export function buildRack(cfgIn) {
     const frontX = panelX[rows];
     cut.push(rectPath(frontX - clear / 2, railY(frontX) + 12, slotT + clear, endTabH));
 
-    // gniazda czopow dna - pochylone, na linii dna
-    for (const u of tabSpans(runX, 2, floorTabLen * Math.cos(th))) {
-      const x0 = panelX[0] + t + u.start, x1 = x0 + u.w;
+    // gniazda pior dna - pochylone, na linii dna. Uklad "wzdluz spadku"
+    // przeliczamy na wspolrzedne poziome (x = start_boku + u * cos).
+    const cos = Math.cos(th);
+    for (const s of floorSpec.spans) {
+      const x0 = panelX[0] + t + s.start * cos, x1 = panelX[0] + t + (s.start + s.w) * cos;
       cut.push(tiltedSlot(x0, floorY(x0), x1, floorY(x1), slotT));
     }
     add('Bok', 2, D, sideH, cut);
@@ -393,7 +448,8 @@ export function buildRack(cfgIn) {
   {
     const len = floorLen;
     const pts = [[t, 0], [t + IW, 0]];
-    for (const s of tabSpans(len, 2, floorTabLen)) {
+    // pióra po prawej (te same spans co gniazda w boku - jedno lub dwa)
+    for (const s of floorSpec.spans) {
       pts.push([t + IW, s.start]);
       pts.push([t + IW + t, s.start]);
       pts.push([t + IW + t, s.start + s.w]);
@@ -401,7 +457,7 @@ export function buildRack(cfgIn) {
     }
     pts.push([t + IW, len]);
     pts.push([t, len]);
-    for (const s of [...tabSpans(len, 2, floorTabLen)].reverse()) {
+    for (const s of [...floorSpec.spans].reverse()) {
       pts.push([t, s.start + s.w]);
       pts.push([0, s.start + s.w]);
       pts.push([0, s.start]);

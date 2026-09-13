@@ -62,6 +62,12 @@ na 24 telefony):
   w które wskakuje krawędź boku, a zewnętrzna warstwa czopa wysuwa się za nie
   z rampą ułatwiającą wciśnięcie — przegroda nie wypada z wcięcia. Czoła czopów
   są sfazowane. Zatrzaski można wyłączyć i zmienić ich wymiary,
+* **pióra dna dobierane do rozmiaru**: liczba (2 lub 1) i szerokość piór dna
+  oraz odpowiadających im gniazd w bokach są liczone z jednego źródła i
+  dopasowywane do długości dna. W małych organizerach (12–18 przegródek) pełne
+  pióra 28 mm wchodziłyby w łuk nóżek i wychodziły poza obrys ściany — teraz
+  pióra się zwężają, a przy bardzo krótkim dnie zostaje jedno, wyśrodkowane
+  pióro. Zawsze zostają nad linią łuku, w obrysie ściany,
 * **pochyłe dno** równoległe do szyny, **panel tylny** z numerami ostatniego
   rzędu i **panel czołowy** z nazwą szkoły i klasą.
 
@@ -71,7 +77,7 @@ w przegrodach podłużnych); dodanie linii poszerza wszystkie części o szeroko
 linii i dokłada jedną przegrodę podłużną. Numeracja biegnie od przodu, numery
 każdego rzędu są grawerowane na przegrodzie zamykającej go od tyłu.
 
-Warianty katalogowe: R-15 (5×3), R-24 (8×3), R-30 (10×3), R-32 (8×4).
+Warianty katalogowe: R-12 (4×3), R-15 (5×3), R-18 (6×3), R-24 (8×3), R-30 (10×3), R-32 (8×4).
 
 ```
 node tools/export-cli.mjs --model rack --sku R-24 --out out/R-24
