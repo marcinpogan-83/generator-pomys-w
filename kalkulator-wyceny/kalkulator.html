@@ -514,7 +514,7 @@ table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
     <h2 id="mTitle">Podgląd oferty</h2>
     <div class="modal-actions">
       <button type="button" class="btn primary" id="pdfBtn">Pobierz PDF</button>
-      <button type="button" class="btn" id="printBtn">Drukuj / zapisz PDF</button>
+      <button type="button" class="btn primary" id="printBtn" hidden>Drukuj / zapisz PDF</button>
       <button type="button" class="btn" id="mCopy">Kopiuj tekst</button>
       <button type="button" class="btn" id="mClose">Zamknij</button>
     </div>
@@ -529,6 +529,15 @@ table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
     <div class="dlg-actions">
       <button type="button" class="btn" id="takeCancel">Anuluj</button>
       <button type="button" class="btn primary" id="takeOk">Zdejmij z magazynu</button>
+    </div>
+  </div>
+</div>
+<div class="dlg" id="askDlg" role="alertdialog" aria-modal="true" aria-labelledby="askTitle" hidden>
+  <div class="dlg-box">
+    <h2 id="askTitle"></h2>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="askNo">Anuluj</button>
+      <button type="button" class="btn primary" id="askYes"></button>
     </div>
   </div>
 </div>
@@ -765,9 +774,10 @@ function addReg(){
   queueWrite(id, 0); renderReg();
   const n = document.getElementById('r_name_' + id); if(n) n.focus();
 }
-function delReg(id){
-  const it = REG.get(id); if(!it) return;
-  if(!confirm('Usunąć „' + (it.name || 'materiał') + '” z magazynu?')) return;
+async function delReg(id){
+  let it = REG.get(id); if(!it) return;
+  if(!await ask('Usunąć „' + (it.name || 'materiał') + '” z magazynu?', 'Usuń')) return;
+  it = REG.get(id); if(!it) return;
   P.mats.forEach(m => { if(m.stockId === id){ if(!(pos(m.perSheet) > 0)){ const a = fitCount(pos(it.w), pos(it.h), pos(m.pw), pos(m.ph)); if(a) m.perSheet = String(a); } m.stockId = ''; m.name = it.name; m.cat = it.cat; m.sheet = it.price; } });
   REG.delete(id); queueWrite(id, 0); renderReg(); renderMats(); save(); update();
 }
@@ -1105,8 +1115,8 @@ document.addEventListener('click', e => {
   else if(t.dataset.rdel){ delReg(t.dataset.rdel); }
   else if(t.id === 'addMat'){ P.mats.push(newMat('')); renderMats(); save(); update(); const n = $('#mname1'); if(n) n.focus(); }
   else if(t.dataset.remove){ P.mats.splice(+t.dataset.remove, 1); renderMats(); save(); update(); }
-  else if(t.id === 'reset'){ if(confirm('Wyczyścić bieżącą wycenę? Stawki cennika zostaną bez zmian.')){ P = defP(); fillStatic(); renderMats(); save(); update(); window.scrollTo({top:0}); } }
-  else if(t.id === 'resetRates'){ if(confirm('Przywrócić wszystkie stawki z cennika v2?')){ S = Object.assign({}, DEF_S); renderRates(); renderMats(); labels(); save(); update(); } }
+  else if(t.id === 'reset'){ ask('Wyczyścić bieżącą wycenę? Stawki cennika zostaną bez zmian.', 'Wyczyść').then(ok => { if(ok){ P = defP(); fillStatic(); document.querySelectorAll('[aria-invalid]').forEach(x => x.removeAttribute('aria-invalid')); renderMats(); save(); update(); window.scrollTo({top:0}); } }); }
+  else if(t.id === 'resetRates'){ ask('Przywrócić wszystkie stawki z cennika v2?', 'Przywróć').then(ok => { if(ok){ S = Object.assign({}, DEF_S); renderRates(); renderMats(); labels(); save(); update(); } }); }
   else if(t.id === 'copy' || t.id === 'mCopy'){ copyQuote(); }
   else if(t.id === 'genOffer'){ openOffer(); }
   else if(t.id === 'takeStock'){ openTake(); }
@@ -1324,7 +1334,8 @@ async function savePdf(btn){
     btn.disabled = false; btn.textContent = label;
   }
 }
-getDownloads().then(dl => { if(!dl) $('#pdfBtn').hidden = true; });
+// w ramce artefaktu window.print() nic nie robi, a poza nią nie ma capability 'downloads'
+getDownloads().then(dl => { $('#pdfBtn').hidden = !dl; $('#printBtn').hidden = !!dl; });
 
 /* ---------- zdejmowanie z magazynu ---------- */
 function takeList(r){
@@ -1416,6 +1427,19 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.dataset && e.target.dataset.take){ e.preventDefault(); confirmTake(); }
 });
 $('#takeDlg').addEventListener('click', e => { if(e.target.id === 'takeDlg') closeTake(); });
+
+// window.confirm() w ramce artefaktu Claude od razu zwraca false, więc pytamy w oknie na stronie
+let askResolve = null, askFocus;
+function ask(title, yes){
+  $('#askTitle').textContent = title; $('#askYes').textContent = yes || 'Tak';
+  askFocus = document.activeElement; $('#askDlg').hidden = false; $('#askNo').focus();
+  return new Promise(res => { askResolve = res; });
+}
+function closeAsk(v){ if(!askResolve) return; $('#askDlg').hidden = true; const r = askResolve; askResolve = null; if(askFocus && askFocus.focus && document.contains(askFocus)) askFocus.focus(); r(v); }
+$('#askYes').addEventListener('click', () => closeAsk(true));
+$('#askNo').addEventListener('click', () => closeAsk(false));
+$('#askDlg').addEventListener('click', e => { if(e.target.id === 'askDlg') closeAsk(false); });
+document.addEventListener('keydown', e => { if($('#askDlg').hidden) return; if(e.key === 'Escape'){ e.stopImmediatePropagation(); closeAsk(false); } else trapFocus(e, $('#askDlg')); }, true);
 
 let toastTimer;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2200); }
