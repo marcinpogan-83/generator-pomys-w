@@ -1,0 +1,274 @@
+<title>Przegląd kalkulatora laser.cat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* Układ: jedna kolumna raportu warsztatowego, paleta i kroje wzięte z samego kalkulatora (sklejka, palony brąz, pomarańcz lasera) */
+:root{
+  --bg:#E9DCC8; --surface:#F8F2E9; --surface-2:#F1E6D6; --ink:#3B281B; --muted:#6E5442;
+  --line:#C9B092; --line-soft:#DCC9AF; --accent:#4F772D; --laser:#B5491A;
+  --sev-hi:#A8441A; --sev-mid:#9A6B12; --sev-lo:#6E5442; --ok:#4F772D;
+  --serif:"IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1E140D; --surface:#2A1D13; --surface-2:#33241A; --ink:#EADBC6; --muted:#BA9E81;
+    --line:#5E4636; --line-soft:#45321F; --accent:#8DBF63; --laser:#F3722C;
+    --sev-hi:#F59A62; --sev-mid:#E2B456; --sev-lo:#BA9E81; --ok:#8DBF63; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1E140D; --surface:#2A1D13; --surface-2:#33241A; --ink:#EADBC6; --muted:#BA9E81;
+  --line:#5E4636; --line-soft:#45321F; --accent:#8DBF63; --laser:#F3722C;
+  --sev-hi:#F59A62; --sev-mid:#E2B456; --sev-lo:#BA9E81; --ok:#8DBF63; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--serif)}
+.wrap{max-width:920px;margin:0 auto;padding-inline:20px;padding-block:32px 64px}
+header.top{border-bottom:1.5px solid var(--line);padding-bottom:20px;margin-bottom:8px}
+.brand{font:600 13px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;margin:0 0 10px;font-weight:600;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:62ch}
+h2{font-size:24px;font-weight:600;margin:0 0 6px;text-wrap:balance}
+h3{font-size:17px;font-weight:600;margin:0 0 4px}
+section{padding-block:30px;border-bottom:1px solid var(--line-soft)}
+section:last-of-type{border-bottom:0}
+p{max-width:68ch}
+.muted{color:var(--muted)}
+code{font:500 .88em var(--mono);background:var(--surface-2);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+
+.kerf{border:0;border-top:1.5px dashed var(--line);margin:22px 0}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:20px}
+.tile{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.tile .n{font:600 30px/1.1 var(--serif);font-variant-numeric:tabular-nums}
+.tile .n.hi{color:var(--laser)}
+.tile .n.ok{color:var(--ok)}
+.tile .l{font-size:14px;color:var(--muted);margin-top:4px}
+
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-top:14px}
+.verdict ul{margin:6px 0 0;padding-left:20px}
+.verdict li{margin:4px 0}
+
+.tbl{overflow-x:auto;margin-top:14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14.5px}
+th{font:600 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1.5px solid var(--line)}
+td{padding:9px 12px;border-top:1px solid var(--line-soft);vertical-align:top}
+td.num{font:500 13.5px var(--mono);white-space:nowrap}
+.pill{display:inline-block;font:600 11.5px/1 var(--mono);letter-spacing:.03em;padding:4px 7px;border-radius:999px;white-space:nowrap;border:1.5px solid currentColor}
+.p-fail{color:var(--sev-hi)}
+.p-ok{color:var(--ok)}
+.p-same{color:var(--sev-lo)}
+
+.bugs{display:grid;gap:12px;margin-top:16px}
+.bug{display:grid;grid-template-columns:6px minmax(0,1fr);gap:0;background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line-soft)}
+.bug .sev{background:var(--sev-lo)}
+.bug.hi .sev{background:var(--sev-hi)}
+.bug.mid .sev{background:var(--sev-mid)}
+.bug .body{padding:14px 16px;min-width:0}
+.bug .meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-bottom:4px}
+.bug .tag{font:600 11.5px var(--mono);letter-spacing:.05em;text-transform:uppercase}
+.bug.hi .tag{color:var(--sev-hi)} .bug.mid .tag{color:var(--sev-mid)} .bug.lo .tag{color:var(--sev-lo)}
+.bug h3{margin:0}
+.bug p{margin:4px 0 0;font-size:15px}
+.bug .fix{font-size:14.5px;color:var(--muted)}
+.bug .fix b{color:var(--ok);font-weight:600}
+
+.perf{display:grid;gap:14px;margin-top:16px}
+.bar-row{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 92px;gap:10px;align-items:center;font-size:14.5px}
+.track{height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden;border:1px solid var(--line-soft)}
+.fill{height:100%;background:var(--laser)}
+.fill.after{background:var(--ok)}
+.bar-row .v{font:500 13.5px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+
+ol.todo{padding-left:22px;margin:12px 0 0}
+ol.todo li{margin:10px 0;max-width:68ch}
+ol.todo li b{font-weight:600}
+.files{font:500 14px var(--mono);background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:12px 14px;margin-top:12px;overflow-x:auto;white-space:pre}
+@media (max-width:560px){ .bar-row{grid-template-columns:1fr 70px} .bar-row .track{grid-column:1/-1;grid-row:2} }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <p class="brand">laser.cat · przegląd kodu i testy · 13.10.2026</p>
+  <h1>Kalkulator wyceny: przegląd, testy i poprawki</h1>
+  <p class="lede">Przejrzałem plik <code>Kalkulator_wyceny___laser.cat.html</code> (1364 linie: HTML, CSS i JS w jednym pliku). Uruchomiłem 15 scenariuszy w Chromium (Playwright) na wersji oryginalnej i na poprawionej. Wszystkie liczby na tej stronie pochodzą z tych przebiegów.</p>
+  <div class="tiles">
+    <div class="tile"><div class="n hi">13</div><div class="l">błędów potwierdzonych testem</div></div>
+    <div class="tile"><div class="n ok">13 / 13</div><div class="l">naprawionych, sprawdzonych tym samym testem</div></div>
+    <div class="tile"><div class="n hi">~22%</div><div class="l">wycen, w których suma pozycji ≠ „Razem” (przed)</div></div>
+    <div class="tile"><div class="n ok">−94%</div><div class="l">danych zapisywanych do pamięci przeglądarki przy pisaniu w magazynie</div></div>
+  </div>
+</header>
+
+<section id="ocena">
+  <h2>Ocena kodu</h2>
+  <p class="muted">Ogólnie solidna aplikacja jednoplikowa, napisana starannie. Najsłabsze miejsca to kwoty pieniężne liczone na liczbach zmiennoprzecinkowych bez zaokrąglania, ta sama logika opisu powtórzona w trzech miejscach (panel, tekst do skopiowania, oferta) oraz synchronizacja magazynu, która w dwóch sytuacjach gubi dane.</p>
+  <div class="verdict">
+    <div>
+      <h3>Co jest dobrze</h3>
+      <ul>
+        <li>Wszystkie dane od użytkownika są escapowane (<code>esc()</code>). Test XSS w nazwie projektu, materiale, kliencie i uwagach oferty nic nie wykonał.</li>
+        <li>Migracje starych formatów zapisu (<code>designH</code>, <code>clientSurcharge</code>, <code>oil/gild</code>).</li>
+        <li>Zapis wyceny z opóźnieniem 250 ms. Generator PDF (~900 kB) ładuje się dopiero po kliknięciu.</li>
+        <li>Dobra dostępność bazowa: etykiety, <code>radiogroup</code>, cele dotyku ≥ 44 px, <code>prefers-reduced-motion</code>, ciemny motyw.</li>
+        <li>Brak poziomego przewijania przy 360 px. Dolny pasek z kwotą chowa się, gdy panel wyceny jest widoczny.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Co wymaga pracy</h3>
+      <ul>
+        <li>Kwoty bez zaokrąglania do groszy, więc pozycje nie sumują się do „Razem”, a netto + VAT ≠ brutto.</li>
+        <li>Opisy pozycji są składane osobno w <code>update()</code>, <code>copyQuote()</code> i <code>offerHTML()</code>. Stąd rozjazdy (rabat, minimum, ważność).</li>
+        <li><code>confirm()</code> i <code>window.print()</code> w ramce artefaktu Claude nie działają.</li>
+        <li>Cała logika w jednym IIFE z globalnym stanem. <code>calc()</code> nie da się przetestować bez przeglądarki.</li>
+        <li>Każde zdarzenie <code>input</code> + <code>change</code> przelicza wycenę dwa razy.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="testy">
+  <h2>Wyniki testów</h2>
+  <p class="muted">Ten sam skrypt (<code>tests/scenariusze.cjs</code>) uruchomiony na obu wersjach. Losowe scenariusze zaokrągleń: 150 wycen + 60 z VAT na przebieg.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Scenariusz</th><th>Oryginał</th><th>Po poprawkach</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>Start strony, błędy konsoli</td><td class="num">0 błędów</td><td class="num">0 błędów</td><td><span class="pill p-same">bez zmian</span></td></tr>
+      <tr><td>Podstawowe liczenie (10 szt. × 4:30)</td><td class="num">112,50 zł</td><td class="num">112,50 zł</td><td><span class="pill p-same">bez zmian</span></td></tr>
+      <tr><td>Czas 119:36 min</td><td class="num">„1 godz. 60 min”</td><td class="num">„2 godz.”</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Suma pozycji = Razem (150 losowych)</td><td class="num">31–36 rozjazdów</td><td class="num">0</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Netto + VAT = brutto (60 losowych)</td><td class="num">13–15 rozjazdów</td><td class="num">0</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Tekst do skopiowania przy minimum zamówienia</td><td class="num">„Minimalna wartość: 45,00”</td><td class="num">„Wyrównanie …: 42,50”</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Ważność 30 dni w tekście do skopiowania</td><td class="num">„ważna 14 dni”</td><td class="num">„ważna 30 dni”</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Arkusze: linia wyceny vs zdjęcie z magazynu (30 szt., 15/ark.)</td><td class="num">3 ark. vs 2 ark.</td><td class="num">2,5 vs 2,5 ark.</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Oferta poza Claude: zapis PDF</td><td class="num">brak przycisku</td><td class="num">„Drukuj / zapisz PDF”</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Fokus klawiatury w oknie oferty</td><td class="num">ucieka pod okno</td><td class="num">zostaje w oknie</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>XSS w polach tekstowych</td><td class="num">nie wykonano</td><td class="num">nie wykonano</td><td><span class="pill p-same">bez zmian</span></td></tr>
+      <tr><td>Sync: materiał tylko lokalny po zalogowaniu</td><td class="num">znika</td><td class="num">wysłany na konto</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Sync: nieudany zapis + snapshot z serwera</td><td class="num">zmiana cofnięta</td><td class="num">zmiana zachowana</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Telefon 360 px: poziome przewijanie</td><td class="num">brak</td><td class="num">brak</td><td><span class="pill p-same">bez zmian</span></td></tr>
+      <tr><td>Liczba sztuk „abc”</td><td class="num">cicho 1 szt.</td><td class="num">pole oznaczone + podpowiedź</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Wyczyszczona stawka podczas edycji</td><td class="num">wycena 0,00 zł</td><td class="num">stawka bez zmian</td><td><span class="pill p-ok">naprawione</span></td></tr>
+      <tr><td>Przeładowanie strony: dane zachowane</td><td class="num">tak</td><td class="num">tak</td><td><span class="pill p-same">bez zmian</span></td></tr>
+      <tr><td>Ramka artefaktu: Usuń / Nowa wycena / Przywróć stawki</td><td class="num">nic się nie dzieje</td><td class="num">działają</td><td><span class="pill p-ok">naprawione</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="bledy">
+  <h2>Błędy i poprawki</h2>
+  <p class="muted">Kolejność według wpływu na pieniądze i dane. Pasek z lewej to waga błędu.</p>
+  <div class="bugs">
+    <article class="bug hi"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Wysoka · dane</span><h3>Nieudany zapis magazynu jest po cichu cofany</h3></div>
+      <p>Gdy zapis na koncie się nie uda, komunikat mówi „Zmiany zostają w tej przeglądarce”. Najbliższy snapshot z serwera nadpisuje jednak <code>REG</code> starą wersją i zmiana znika (np. zmieniona cena arkusza).</p>
+      <p class="fix"><b>Poprawka:</b> lista oczekujących zmian (<code>PENDING</code>) zapisywana w localStorage. Snapshot jej nie nadpisuje, ponowienie następuje po 30 s, po zdarzeniu <code>online</code> i przy starcie.</p>
+    </div></article>
+    <article class="bug hi"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Wysoka · dane</span><h3>Materiały dodane bez połączenia znikają po zalogowaniu</h3></div>
+      <p><code>initDb()</code> wysyła lokalne materiały tylko wtedy, gdy magazyn na koncie jest pusty. W przeciwnym razie lokalne pozycje są zastępowane listą z serwera.</p>
+      <p class="fix"><b>Poprawka:</b> pozycje lokalne, których nie ma na koncie, są wysyłane. Przy pierwszym uruchomieniu po aktualizacji: wszystkie spoza konta, bo starsza wersja nie zapisywała, co jest tylko lokalne.</p>
+    </div></article>
+    <article class="bug hi"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Wysoka · funkcja</span><h3>„Usuń”, „Nowa wycena” i „Przywróć stawki” nie działają w Claude</h3></div>
+      <p>W ramce artefaktu <code>confirm()</code> zwraca <code>false</code> bez pokazania okna, więc te trzy akcje nic nie robią.</p>
+      <p class="fix"><b>Poprawka:</b> własne okno potwierdzenia na stronie (<code>ask()</code>), obsługiwane klawiaturą, z Escape i pułapką fokusu.</p>
+    </div></article>
+    <article class="bug hi"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Wysoka · pieniądze</span><h3>Pozycje oferty nie sumują się do „Razem”</h3></div>
+      <p>Kwoty liczone bez zaokrąglania i zaokrąglane dopiero przy wyświetlaniu. W ok. 22% losowych wycen suma pozycji różni się o 0,01 zł od „Razem”, a netto + VAT od brutto. Na fakturze lub ofercie to widać.</p>
+      <p class="fix"><b>Poprawka:</b> funkcja <code>r2()</code> zaokrągla do groszy każdą pozycję, potem sumę, VAT i brutto.</p>
+    </div></article>
+    <article class="bug mid"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Średnia · pieniądze</span><h3>Różna liczba arkuszy w wycenie i w magazynie</h3></div>
+      <p>W linii wyceny <code>Math.ceil(qty × zapas / sztuk)</code> daje 3 ark., a zdjęcie z magazynu <code>halfUp(qty / sztuk)</code> daje 2 ark. bez zapasu. Stan magazynu rozjeżdża się z wyceną.</p>
+      <p class="fix"><b>Poprawka:</b> jedna wartość dla obu miejsc: z zapasem, zaokrąglona w górę do pół arkusza. Opis okna zaktualizowany.</p>
+    </div></article>
+    <article class="bug mid"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Średnia · klient</span><h3>Tekst „Kopiuj wycenę” wprowadza w błąd</h3></div>
+      <p>Przy minimum zamówienia linia pokazuje 45,00 zł zamiast dopłaty 42,50 zł, więc pozycje nie sumują się do kwoty. Ważność jest wpisana na stałe jako 14 dni, mimo pola „Ważność, dni”. Nazwa firmy też jest wpisana na stałe.</p>
+      <p class="fix"><b>Poprawka:</b> kwota wyrównania, ważność z <code>offerDays()</code> (wspólna z ofertą PDF), nazwa z danych firmy. Fallback kopiowania sprawdza wynik <code>execCommand</code>.</p>
+    </div></article>
+    <article class="bug mid"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Średnia · funkcja</span><h3>Brak PDF poza Claude</h3></div>
+      <p>Bez capability <code>downloads</code> przycisk PDF jest ukryty i nie ma alternatywy. W pliku otwartym lokalnie nie da się wygenerować oferty.</p>
+      <p class="fix"><b>Poprawka:</b> poza Claude przycisk „Drukuj / zapisz PDF” i arkusz stylów druku, który drukuje tylko ofertę (sprawdzone: 1 strona A4). W Claude zostaje dotychczasowy PDF.</p>
+    </div></article>
+    <article class="bug mid"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Średnia · formularz</span><h3>Wyczyszczenie pola stawki zeruje cennik</h3></div>
+      <p>Każde <code>input</code> zapisuje <code>pos('')</code> = 0. Przy przepisywaniu stawki wycena na chwilę spada do 0, a zostawienie pustego pola zapisuje 0 na stałe.</p>
+      <p class="fix"><b>Poprawka:</b> nieprawidłowa wartość jest oznaczana i ignorowana. Po wyjściu z pola przywracana jest ostatnia poprawna.</p>
+    </div></article>
+    <article class="bug lo"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Niska · wyświetlanie</span><h3><code>fmtMin</code>: „1 godz. 60 min” i podwójna spacja</h3></div>
+      <p>Minuty zaokrąglane po wydzieleniu godzin. Przy pełnych godzinach zostaje końcowa spacja („2 godz.  ×”).</p>
+      <p class="fix"><b>Poprawka:</b> najpierw zaokrąglenie do minut, potem podział na godziny i minuty.</p>
+    </div></article>
+    <article class="bug lo"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Niska · opis</span><h3>Rabat „od pracy lasera” liczony też od personalizacji</h3></div>
+      <p>5% z 130 zł (laser 100 + personalizacja 30) = 6,50 zł, a opis mówi tylko o laserze.</p>
+      <p class="fix"><b>Poprawka:</b> opisy w panelu, podpowiedzi i ofercie zgodne z tym, co faktycznie jest liczone.</p>
+    </div></article>
+    <article class="bug lo"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Niska · formularz</span><h3>Błędne liczby przyjmowane po cichu</h3></div>
+      <p>„abc” w liczbie sztuk daje 1 szt. bez sygnału. Ważność „0” dni daje 14 dni.</p>
+      <p class="fix"><b>Poprawka:</b> <code>aria-invalid</code> z czerwoną ramką i podpowiedzią „liczę 1 szt.”. Ważność to minimum 1 dzień, pole puste daje 14 dni.</p>
+    </div></article>
+    <article class="bug lo"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Niska · dostępność</span><h3>Fokus ucieka z okien oferty i magazynu</h3></div>
+      <p>Tab z ostatniego przycisku przechodzi do formularza pod przyciemnieniem.</p>
+      <p class="fix"><b>Poprawka:</b> <code>trapFocus()</code> w oknie oferty, zdejmowania z magazynu i potwierdzenia.</p>
+    </div></article>
+    <article class="bug lo"><div class="sev"></div><div class="body">
+      <div class="meta"><span class="tag">Niska · struktura</span><h3>Podwójny dokument HTML w pliku</h3></div>
+      <p>Plik zawiera dwa <code>&lt;!doctype&gt;</code>, <code>&lt;html&gt;</code> i <code>&lt;body&gt;</code> (opakowanie z eksportu artefaktu). Przeglądarka to naprawia, ale to błąd parsowania. Do tego nieużywana funkcja <code>shWord</code>.</p>
+      <p class="fix"><b>Poprawka:</b> jeden czysty dokument, martwy kod usunięty.</p>
+    </div></article>
+  </div>
+</section>
+
+<section id="wydajnosc">
+  <h2>Wydajność</h2>
+  <p class="muted">Test obciążeniowy: magazyn z 300 materiałami, 50 znaków wpisanych w nazwę materiału. Czasy to mediana 3 przebiegów w Chromium headless.</p>
+  <div class="perf">
+    <h3>Zapisy do localStorage przy pisaniu w magazynie</h3>
+    <div class="bar-row"><span>Oryginał</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">50 × · 1,5 MB</span></div>
+    <div class="bar-row"><span>Po poprawkach</span><div class="track"><div class="fill after" style="width:8%"></div></div><span class="v">4–6 × · 61–91 kB</span></div>
+    <h3 style="margin-top:8px">Przeliczenia listy pozycji na jedno kliknięcie pola wyboru</h3>
+    <div class="bar-row"><span>Oryginał</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">2</span></div>
+    <div class="bar-row"><span>Po poprawkach</span><div class="track"><div class="fill after" style="width:50%"></div></div><span class="v">1</span></div>
+  </div>
+  <p style="margin-top:18px">Czas CPU na jedno naciśnięcie klawisza w wycenie (~0,4–0,5 ms) i przełączenie na magazyn z 300 pozycjami (~40–55 ms) w obu wersjach mieszczą się w szumie pomiaru. Na tej skali danych przeliczanie nie jest wąskim gardłem. Zysk dotyczy operacji wejścia/wyjścia: wcześniej każdy znak serializował cały magazyn do localStorage, co na słabszym telefonie powoduje zacięcia przy pisaniu.</p>
+  <h3 style="margin-top:20px">Wprowadzone optymalizacje</h3>
+  <ul>
+    <li>Zapis magazynu do localStorage z opóźnieniem 400 ms, wymuszany przy ukryciu karty i <code>pagehide</code>.</li>
+    <li>Pola tekstowe obsługiwane tylko na <code>input</code>, przełączniki i listy tylko na <code>change</code>, więc jedno przeliczenie na zdarzenie.</li>
+    <li><code>applyDocs()</code> porównuje pozycje pojedynczo i kończy na pierwszej różnicy, zamiast dwukrotnie sortować i serializować cały magazyn przy każdym snapshocie.</li>
+  </ul>
+</section>
+
+<section id="dalej">
+  <h2>Rekomendacje na kolejny krok</h2>
+  <p class="muted">Nie wprowadzone, bo zmieniają zachowanie lub zakres. Do decyzji.</p>
+  <ol class="todo">
+    <li><b>Wydzielić <code>calc()</code> do czystej funkcji</b> <code>calc(P, S, REG)</code> bez dostępu do DOM i pokryć ją testami jednostkowymi (<code>node --test</code>, jak reszta repozytorium). To największy zysk na przyszłość.</li>
+    <li><b>Jedno źródło pozycji.</b> Niech <code>calc()</code> zwraca gotową listę pozycji z etykietami, a panel, tekst do skopiowania i oferta tylko ją formatują. Usunie to całą klasę rozjazdów z tego raportu.</li>
+    <li><b>Materiał a pełne arkusze.</b> Klient płaci za ułamek arkusza (np. 2,2 ark.), a z magazynu schodzi 2,5. To decyzja cenowa: można rozliczać zużycie do pół arkusza, wtedy cena i stan są zgodne.</li>
+    <li><b>Magazyn przy setkach pozycji.</b> <code>renderReg()</code> przebudowuje całą tabelę przy każdej zmianie z serwera. Aktualizacja tylko zmienionych wierszy (po <code>data-rid</code>) skróci to z ~50 ms do pojedynczych ms.</li>
+    <li><b>Czytniki ekranu.</b> <code>.mat-calc</code> ma <code>aria-live</code> i jest przebudowywany przy każdym znaku, więc czytnik zasypuje użytkownika komunikatami. Warto ogłaszać wynik z opóźnieniem około 500 ms.</li>
+    <li><b>Format czasu.</b> „4,30” jest liczone jako 4,3 min, nie 4 min 30 s. Podpowiedź to opisuje, ale łatwo się pomylić. Można ostrzegać, gdy część dziesiętna ≥ ,60 albo wygląda na sekundy.</li>
+    <li><b>Numeracja ofert.</b> Licznik rośnie tylko po zapisaniu PDF lub wydruku. Oferta wysłana jako skopiowany tekst nie zajmuje numeru, więc następna może dostać ten sam.</li>
+    <li><b>Zakładki.</b> <code>role="tab"</code> bez obsługi strzałek. Dodać nawigację ←/→ zgodną ze wzorcem ARIA.</li>
+  </ol>
+</section>
+
+<section id="pliki">
+  <h2>Pliki</h2>
+  <p class="muted">Gałąź <code>claude/admiring-brown-me7ub7</code> w repozytorium <code>generator-pomys-w</code>. Pierwszy commit to oryginał, więc pełny diff poprawek widać w historii.</p>
+  <div class="files">kalkulator-wyceny/kalkulator.html          poprawiona aplikacja
+kalkulator-wyceny/tests/scenariusze.cjs    15 scenariuszy E2E (Playwright)
+kalkulator-wyceny/raport.html              ten raport</div>
+</section>
+</div>
