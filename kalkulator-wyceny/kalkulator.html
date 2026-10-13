@@ -62,6 +62,7 @@ input[type=text],input:not([type]){
   border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;min-height:44px}
 input.mat-name,input#pname,input.txt{font-family:var(--serif);font-weight:500}
 input::placeholder{color:var(--muted);opacity:.7}
+input[aria-invalid="true"]{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn)}
 
 .seg{display:flex;flex-wrap:wrap;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg label{flex:1 1 120px;position:relative;cursor:pointer}
@@ -263,6 +264,15 @@ table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
   .bar button{background:var(--tag-ink);color:var(--tag-bg);border:0;border-radius:8px;font:600 15px var(--serif);padding:10px 16px;min-height:44px;cursor:pointer}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media print{
+  @page{size:A4;margin:10mm 0 12mm}
+  body.printing{background:#FFFDF9}
+  body.printing .wrap,body.printing .bar,body.printing .modal-bar,body.printing .toast,body.printing .dlg{display:none!important}
+  body.printing .modal{position:static;background:none;padding:0}
+  body.printing .modal-body{overflow:visible;padding:0}
+  body.printing .paper{box-shadow:none;max-width:none}
+  body.printing .of-t tr,body.printing .of-sum,body.printing .of-foot{break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -504,6 +514,7 @@ table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
     <h2 id="mTitle">Podgląd oferty</h2>
     <div class="modal-actions">
       <button type="button" class="btn primary" id="pdfBtn">Pobierz PDF</button>
+      <button type="button" class="btn" id="printBtn">Drukuj / zapisz PDF</button>
       <button type="button" class="btn" id="mCopy">Kopiuj tekst</button>
       <button type="button" class="btn" id="mClose">Zamknij</button>
     </div>
@@ -513,7 +524,7 @@ table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
 <div class="dlg" id="takeDlg" role="dialog" aria-modal="true" aria-labelledby="takeTitle" hidden>
   <div class="dlg-box">
     <h2 id="takeTitle">Zdejmij materiał z magazynu</h2>
-    <p class="hint">Zużycie zaokrąglone w górę do pół arkusza. Popraw liczbę, jeśli zużyłeś więcej albo ciąłeś z resztek.</p>
+    <p class="hint">Zużycie z zapasem na odpad, zaokrąglone w górę do pół arkusza. Popraw liczbę, jeśli zużyłeś więcej albo ciąłeś z resztek.</p>
     <div id="takeRows"></div>
     <div class="dlg-actions">
       <button type="button" class="btn" id="takeCancel">Anuluj</button>
@@ -576,6 +587,7 @@ function save(){
 
 const num = v => { if(v===''||v==null||v===false) return 0; const n = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isFinite(n) ? n : 0; };
 const pos = v => Math.max(0, num(v));
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const nf = (n, d=2) => n.toLocaleString('pl-PL',{minimumFractionDigits:d, maximumFractionDigits:d});
 const zl = n => nf(n) + ' zł';
 const rateTxt = n => nf(n) + ' zł';
@@ -593,9 +605,9 @@ function parseTime(v){
   return isFinite(n) && n > 0 ? n : 0;
 }
 function fmtMin(m){
-  if(m < 60) return nf(m, m % 1 ? 1 : 0) + ' min';
-  const h = Math.floor(m/60), r = Math.round(m - h*60);
-  return h + ' godz. ' + (r ? r + ' min' : '');
+  if(m < 59.95) return nf(m, m % 1 ? 1 : 0) + ' min';
+  const t = Math.round(m), h = Math.floor(t/60), r = t % 60;
+  return h + ' godz.' + (r ? ' ' + r + ' min' : '');
 }
 
 /* ---------- magazyn materiałów ---------- */
@@ -608,7 +620,17 @@ const cleanItem = x => ({name:String(x.name ?? ''), cat: x.cat === 'hard' ? 'har
 (function loadLocalReg(){
   try{ const a = JSON.parse(localStorage.getItem(KEY_R) || '[]'); if(Array.isArray(a)) a.forEach(x => { if(x && x.id) REG.set(String(x.id), cleanItem(x)); }); }catch(e){}
 })();
-function saveLocalReg(){ try{ localStorage.setItem(KEY_R, JSON.stringify([...REG].map(([id, v]) => Object.assign({id}, v)))); }catch(e){} }
+// Zmiany jeszcze niepotwierdzone przez zapis na koncie. Przeżywają przeładowanie strony,
+// więc ani snapshot z serwera, ani start aplikacji ich nie nadpisze.
+const KEY_PEND = KEY_R + '-oczekujace';
+const PENDING = new Set((() => { try{ const a = JSON.parse(localStorage.getItem(KEY_PEND) || '[]'); return Array.isArray(a) ? a.map(String) : []; }catch(e){ return []; } })());
+let localTimer = null;
+function writeLocalReg(){
+  clearTimeout(localTimer); localTimer = null;
+  try{ localStorage.setItem(KEY_R, JSON.stringify([...REG].map(([id, v]) => Object.assign({id}, v)))); localStorage.setItem(KEY_PEND, JSON.stringify([...PENDING])); }catch(e){}
+}
+// zapis do localStorage z opóźnieniem: przy pisaniu nazwy nie serializujemy całego magazynu po każdym znaku
+function saveLocalReg(now){ if(now) writeLocalReg(); else if(!localTimer) localTimer = setTimeout(writeLocalReg, 400); }
 const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const regSorted = () => [...REG].map(([id, v]) => Object.assign({id}, v)).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
 
@@ -620,7 +642,8 @@ function setSync(state){
     : 'Zapisywane tylko w tej przeglądarce.';
 }
 function queueWrite(id, delay){
-  saveLocalReg();
+  PENDING.add(id);
+  saveLocalReg(delay === 0);
   if(!regCol) return;
   const q = wq[id] || (wq[id] = {});
   clearTimeout(q.timer); q.timerOn = true;
@@ -634,6 +657,7 @@ async function flush(id, retried){
     const item = REG.get(id);
     if(item) await regCol.doc(id).set(Object.assign({}, item));
     else await regCol.doc(id).delete();
+    if(!q.again){ PENDING.delete(id); saveLocalReg(); }
     setSync('ok');
   }catch(e){
     const code = e && e.code;
@@ -641,12 +665,19 @@ async function flush(id, retried){
     if(code === 'quota_exceeded') toast('Magazyn jest pełny. Usuń nieużywane materiały.');
     else toast('Nie udało się zapisać materiału na koncie.');
     setSync('error');
+    scheduleRetry();
   }
   q.writing = false;
   if(q.again){ q.again = false; flush(id); }
 }
 function flushAll(){ Object.keys(wq).forEach(id => { const q = wq[id]; if(q.timerOn){ clearTimeout(q.timer); q.timerOn = false; flush(id); } }); }
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') flushAll(); });
+// ponowna próba dla zmian, których nie udało się zapisać (bez nadpisywania ich snapshotem)
+let retryTimer = null;
+function retryPending(){ retryTimer = null; if(regCol) PENDING.forEach(id => { const q = wq[id]; if(!q || !(q.writing || q.timerOn)) queueWrite(id, 0); }); }
+function scheduleRetry(){ if(!retryTimer) retryTimer = setTimeout(retryPending, 30000); }
+window.addEventListener('online', retryPending);
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden'){ flushAll(); writeLocalReg(); } });
+window.addEventListener('pagehide', writeLocalReg);
 
 let regDirty = false, matsDirty = false;
 function refreshFromStore(){
@@ -664,10 +695,11 @@ document.addEventListener('focusout', () => setTimeout(() => {
 function applyDocs(docs){
   const next = new Map();
   docs.forEach(d => { if(d.exists !== false) next.set(d.id, cleanItem(d.data() || {})); });
-  Object.keys(wq).forEach(id => { const q = wq[id]; if(q.writing || q.timerOn){ if(REG.has(id)) next.set(id, REG.get(id)); else next.delete(id); } });
-  const before = JSON.stringify(regSorted());
+  PENDING.forEach(id => { if(REG.has(id)) next.set(id, REG.get(id)); else next.delete(id); });
+  let changed = next.size !== REG.size;
+  if(!changed) for(const [id, v] of next){ const o = REG.get(id); if(!o || JSON.stringify(o) !== JSON.stringify(v)){ changed = true; break; } }
   REG = next;
-  if(JSON.stringify(regSorted()) !== before){ saveLocalReg(); refreshFromStore(); }
+  if(changed){ saveLocalReg(); refreshFromStore(); }
 }
 async function initDb(){
   if(!(window.claude && typeof window.claude.use === 'function')){ setSync('local'); return; }
@@ -679,8 +711,13 @@ async function initDb(){
     const col = db.doc('data/users/' + uid + '/magazyn').collection('materialy');
     const first = await col.get();
     regCol = col;
-    if(first.empty && REG.size){ [...REG.keys()].forEach(id => queueWrite(id, 0)); }
-    else applyDocs(first.docs);
+    // pierwsze połączenie: materiały tylko z tej przeglądarki wysyłamy na konto, zamiast je gubić
+    // Starsza wersja nie zapisywała listy oczekujących zmian – wtedy nie wiemy, co jest tylko lokalne,
+    // więc lepiej wysłać materiał na konto niż go po cichu usunąć.
+    const legacy = (() => { try{ return localStorage.getItem(KEY_PEND) === null; }catch(e){ return false; } })();
+    if(first.empty || legacy){ const onServer = new Set(first.docs.map(d => d.id)); REG.forEach((v, id) => { if(!onServer.has(id)) PENDING.add(id); }); }
+    applyDocs(first.docs);
+    retryPending();
     setSync('ok');
     col.onSnapshot(snap => applyDocs(snap.docs), () => setSync('error'));
   }catch(e){ regCol = null; setSync('local'); }
@@ -754,7 +791,6 @@ const halfUp = x => Math.ceil(x * 2 - 1e-9) / 2;
 const halfRound = x => Math.round(x * 2) / 2;
 const fmtSh = n => nf(n, Math.abs(n % 1) > 1e-9 ? 1 : 0);
 const storeSh = n => String(Math.round(n * 100) / 100).replace('.', ',');
-const shWord = n => n === 1 ? 'arkusz' : (n % 1 || (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14))) ? 'arkusze' : 'arkuszy';
 const persPrice = n => n <= 0 ? 0 : n <= 10 ? S.pers1 : n <= 50 ? S.pers2 : S.pers3;
 const discPct = q => q >= 101 ? S.d4 : q >= 51 ? S.d3 : q >= 26 ? S.d2 : q >= 11 ? S.d1 : 0;
 
@@ -775,20 +811,20 @@ function calc(){
     const hasSheet = sp > 0 && per > 0;
     const unit = hasSheet ? sp / per * wasteF * markF : 0;
     let material = 0, sheets = 0;
-    if(!m.client && hasSheet){ material = unit * qty; sheets = Math.ceil(qty * wasteF / per); }
+    if(!m.client && hasSheet){ material = r2(unit * qty); sheets = halfUp(qty * wasteF / per); }
     const name = ((reg ? reg.name : m.name) || '').trim() || ('Materiał ' + 'AB'[i]);
-    return {name, cut, eng, minutes, rate, cat, laser: minutes*rate, material, sheets, client: m.client, missingSheet: !m.client && !hasSheet,
+    return {name, cut, eng, minutes, rate, cat, laser: r2(minutes*rate), material, sheets, client: m.client, missingSheet: !m.client && !hasSheet,
             stockId: m.stockId, reg, lost: !!m.stockId && !reg, sp, sw, sh, auto, typed, per, unit,
-            use: (reg && !m.client && per > 0 && minutes > 0) ? halfUp(qty / per) : 0,
+            use: (reg && !m.client && per > 0 && minutes > 0) ? sheets : 0,
             tooBig: !!reg && sw > 0 && sh > 0 && pw > 0 && ph > 0 && auto === 0};
   });
   const laser = mats.reduce((a,m) => a + m.laser, 0);
   const laserMin = mats.reduce((a,m) => a + m.minutes, 0);
   const persN = Math.min(Math.floor(pos(P.pers)), qty);
   const persUnit = persPrice(persN);
-  const pers = persN * persUnit;
+  const pers = r2(persN * persUnit);
   const dPct = discPct(qty);
-  const discount = (laser + pers) * dPct / 100;
+  const discount = r2((laser + pers) * dPct / 100);
 
   const prep = [];
   if(P.filePrep) prep.push(['Przygotowanie pliku', '', S.prepStd]);
@@ -814,17 +850,18 @@ function calc(){
   if(P.paint) fin.push(['Malowanie', qty + ' × ' + rateTxt(paintUnit), qty*paintUnit]);
   if(P.pack) fin.push(['Pakowanie', qty + ' × ' + rateTxt(S.pack), qty*S.pack]);
 
+  prep.forEach(x => { x[2] = r2(x[2]); }); fin.forEach(x => { x[2] = r2(x[2]); });
   const prepSum = prep.reduce((a,x) => a + x[2], 0);
   const finSum = fin.reduce((a,x) => a + x[2], 0);
   const material = mats.reduce((a,m) => a + m.material, 0);
-  const labor = laser + pers - discount + prepSum + finSum;
+  const labor = r2(laser + pers - discount + prepSum + finSum);
   const prioPct = P.prio === 'prio' ? S.prio : P.prio === 'express' ? S.express : 0;
-  const prioAmt = labor * prioPct / 100;
-  let net = labor + prioAmt + material;
-  const minAdj = net > 0 && net < S.minOrder ? S.minOrder - net : 0;
-  net += minAdj;
-  const vat = P.vatMode === 'vat' ? net * S.vat / 100 : 0;
-  const gross = net + vat;
+  const prioAmt = r2(labor * prioPct / 100);
+  let net = r2(labor + prioAmt + material);
+  const minAdj = net > 0 && net < S.minOrder ? r2(S.minOrder - net) : 0;
+  net = r2(net + minAdj);
+  const vat = P.vatMode === 'vat' ? r2(net * S.vat / 100) : 0;
+  const gross = r2(net + vat);
   const laserNet = laser * (1 - dPct/100) * (1 + prioPct/100);
   const laserHourly = laserMin > 0 ? laserNet / (laserMin/60) : 0;
   return {qty, mats, laser, laserMin, persN, persUnit, pers, dPct, discount, prep, fin, material, prioPct, prioAmt, minAdj, net, vat, gross,
@@ -908,8 +945,8 @@ function update(){
   $('#paintRow').hidden = !P.paint;
 
   const q = r.qty;
-  $('#qtyHint').textContent = q > 250 ? 'Powyżej 250 szt.: wycena indywidualna' :
-    r.dPct ? 'Rabat ilościowy ' + nf(r.dPct,0) + '% na pracę lasera' : 'Rabat od 11 szt.';
+  $('#qtyHint').textContent = $('#qty').getAttribute('aria-invalid') ? 'Nieprawidłowa liczba – liczę 1 szt.' : q > 250 ? 'Powyżej 250 szt.: wycena indywidualna' :
+    r.dPct ? 'Rabat ilościowy ' + nf(r.dPct,0) + '% na laser i personalizację' : 'Rabat od 11 szt.';
   $('#persHint').textContent = r.persN > 0 ? 'Dopłata ' + rateTxt(r.persUnit) + '/szt. przy ' + r.persN + ' szt.' :
     'Dopłata: do 10 szt. ' + rateTxt(S.pers1) + ', 11–50 szt. ' + rateTxt(S.pers2) + ', 51–100 szt. ' + rateTxt(S.pers3) + ' za sztukę';
 
@@ -921,11 +958,11 @@ function update(){
     }
   });
   if(r.pers) L.push(li('Personalizacja', r.persN + ' × ' + rateTxt(r.persUnit), zl(r.pers)));
-  if(r.discount) L.push(li('Rabat ilościowy', nf(r.dPct,0) + '% od pracy lasera', '−' + zl(r.discount), 'minus'));
+  if(r.discount) L.push(li('Rabat ilościowy', nf(r.dPct,0) + '% od lasera' + (r.pers ? ' i personalizacji' : ''), '−' + zl(r.discount), 'minus'));
   r.prep.forEach(x => L.push(li(x[0], x[1], zl(x[2]))));
   r.fin.forEach(x => L.push(li(x[0], x[1], zl(x[2]))));
   r.mats.forEach(m => {
-    if(m.material > 0) L.push(li('Materiał: ' + m.name, m.sheets + ' ark., z zapasem ' + nf(S.waste,0) + '%' + (S.markup ? ', narzut ' + nf(S.markup,0) + '%' : ''), zl(m.material)));
+    if(m.material > 0) L.push(li('Materiał: ' + m.name, '≈ ' + fmtSh(m.sheets) + ' ark. z zapasem ' + nf(S.waste,0) + '%' + (S.markup ? ', narzut ' + nf(S.markup,0) + '%' : ''), zl(m.material)));
   });
   if(r.prioAmt) L.push(li(P.prio === 'express' ? 'Ekspres do 24 h' : 'Realizacja priorytetowa', '+' + nf(r.prioPct,0) + '% od usług', zl(r.prioAmt)));
   if(r.minAdj) L.push(li('Wyrównanie do minimum', 'minimalna wartość ' + rateTxt(S.minOrder), zl(r.minAdj)));
@@ -1006,10 +1043,17 @@ function update(){
 }
 
 /* ---------- events ---------- */
+function markInvalid(t){
+  const v = String(t.value).trim();
+  const bad = v !== '' && !(/^-?[\d\s]*[.,]?\d*$/.test(v) && /\d/.test(v) && num(v) >= 0);
+  if(bad) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid');
+}
 function onEdit(e){
   const t = e.target;
   if(t.type === 'radio' && !t.checked) return;
-  if(t.tagName === 'SELECT' && e.type === 'input') return;
+  const discrete = t.type === 'checkbox' || t.type === 'radio' || t.tagName === 'SELECT';
+  // pola tekstowe obsługujemy na 'input', przełączniki i listy na 'change' – bez podwójnego przeliczania
+  if(discrete ? e.type === 'input' : (e.type === 'change' && !t.dataset.s)) return;
   const val = t.type === 'checkbox' ? t.checked : t.value;
   if(t.dataset.r){
     const dot = t.dataset.r.lastIndexOf('.'), id = t.dataset.r.slice(0, dot), k = t.dataset.r.slice(dot + 1);
@@ -1022,7 +1066,7 @@ function onEdit(e){
   }
   if(t.dataset.o){ P.offer[t.dataset.o] = val; save(); return; }
   if(t.dataset.f){ F[t.dataset.f] = val; save(); return; }
-  if(t.dataset.p){ P[t.dataset.p] = val; }
+  if(t.dataset.p){ P[t.dataset.p] = val; if(t.inputMode === 'numeric' || t.inputMode === 'decimal') markInvalid(t); }
   else if(t.dataset.m){
     const [i, k] = t.dataset.m.split('.');
     const mt = P.mats[+i];
@@ -1037,7 +1081,16 @@ function onEdit(e){
     mt[k] = val;
     if(k === 'client') t.closest('.mat').classList.toggle('is-client', val);
   }
-  else if(t.dataset.s){ S[t.dataset.s] = pos(val); if(e.type === 'change') renderMats(); labels(); }
+  else if(t.dataset.s){
+    const k = t.dataset.s, bad = String(val).trim() === '' || !isFinite(parseFloat(String(val).replace(/\s/g,'').replace(',','.')));
+    if(e.type === 'change'){
+      if(bad) t.value = nf(S[k], S[k]%1?2:0);
+      t.removeAttribute('aria-invalid'); renderMats(); labels(); update(); return;
+    }
+    t.toggleAttribute('aria-invalid', bad);
+    if(bad) return;
+    S[k] = pos(val); labels();
+  }
   else return;
   save(); update();
 }
@@ -1062,13 +1115,14 @@ document.addEventListener('click', e => {
   else if(t.id === 'takeUndo'){ undoTake(); }
   else if(t.id === 'mClose'){ closeOffer(); }
   else if(t.id === 'pdfBtn'){ savePdf(t); }
+  else if(t.id === 'printBtn'){ commitNumber(); window.print(); }
   else if(t.id === 'barBtn'){ $('#tag').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'}); }
 });
 
 function copyQuote(){
   const r = last; if(!r) return;
   const lines = [];
-  lines.push('Wycena laser.cat');
+  lines.push('Wycena ' + (trimDot(F.name) || 'laser.cat'));
   lines.push('Projekt: ' + ((P.name||'').trim() || 'bez nazwy'));
   lines.push('Ilość: ' + r.qty + ' szt.');
   lines.push('');
@@ -1078,20 +1132,21 @@ function copyQuote(){
   const fin = r.fin.reduce((a,x) => a + x[2], 0); if(fin) lines.push('Obróbka i wykończenie: ' + zl(fin));
   if(r.material) lines.push('Materiał: ' + zl(r.material));
   if(r.prioAmt) lines.push((P.prio === 'express' ? 'Realizacja ekspresowa' : 'Realizacja priorytetowa') + ': ' + zl(r.prioAmt));
-  if(r.minAdj) lines.push('Minimalna wartość zamówienia: ' + zl(S.minOrder));
+  if(r.minAdj) lines.push('Wyrównanie do minimalnej wartości zamówienia (' + zl(S.minOrder) + '): ' + zl(r.minAdj));
   lines.push('');
   if(P.vatMode === 'vat'){ lines.push('Netto: ' + zl(r.net)); lines.push('VAT ' + nf(S.vat,0) + '%: ' + zl(r.vat)); lines.push('Razem brutto: ' + zl(r.gross)); }
   else lines.push('Razem: ' + zl(r.gross) + ' (zwolniony z VAT)');
   lines.push('Cena za sztukę: ' + zl(r.perPiece));
   lines.push('');
   if(r.mats.some(m => m.client)) lines.push('Materiał powierzony obrabiamy na ryzyko klienta. Nie odpowiadamy za jego uszkodzenie w trakcie obróbki.');
-  lines.push('Wycena ważna 14 dni. Ostateczny czas pracy lasera potwierdzamy po weryfikacji pliku.');
+  lines.push('Wycena ważna ' + offerDays() + ' dni. Ostateczny czas pracy lasera potwierdzamy po weryfikacji pliku.');
   const text = lines.join('\n');
   const done = () => toast('Skopiowano wycenę');
   const fallback = () => {
     const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
     document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); done(); }catch(e){ toast('Nie udało się skopiować. Zaznacz tekst ręcznie.'); }
+    let ok = false; try{ ok = document.execCommand('copy'); }catch(e){}
+    if(ok) done(); else toast('Nie udało się skopiować. Zaznacz tekst ręcznie.');
     ta.remove();
   };
   try{
@@ -1112,15 +1167,16 @@ const dPL = d => d.toLocaleDateString('pl-PL', {day:'2-digit', month:'2-digit', 
 const trimDot = s => String(s || '').trim().replace(/[.\s]+$/, '');
 const slug = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
+function offerDays(){ const v = String(P.offer.days ?? '').trim(); return v === '' ? 14 : Math.max(1, Math.floor(num(v)) || 1); }
 function offerHTML(r){
   const today = new Date();
-  const days = Math.max(1, Math.floor(num(P.offer.days)) || 14);
+  const days = offerDays();
   const until = new Date(today.getTime() + days * 864e5);
   const ops = m => [m.cut ? 'cięcie' : '', m.eng ? 'grawerowanie' : ''].filter(Boolean).join(' i ');
   const rows = [];
   if(r.laser > 0) rows.push(['Cięcie i grawerowanie laserowe', r.mats.filter(m => m.minutes > 0).map(m => m.name + ': ' + ops(m) + (m.client ? ' (materiał klienta)' : '')).join('; '), r.laser]);
   if(r.pers) rows.push(['Personalizacja', r.persN + ' szt. z indywidualnym wzorem', r.pers]);
-  if(r.discount) rows.push(['Rabat ilościowy ' + nf(r.dPct,0) + '%', 'od cięcia, grawerowania i personalizacji', -r.discount, 'minus']);
+  if(r.discount) rows.push(['Rabat ilościowy ' + nf(r.dPct,0) + '%', r.pers ? 'od cięcia, grawerowania i personalizacji' : 'od cięcia i grawerowania', -r.discount, 'minus']);
   r.prep.forEach(x => rows.push([x[0], x[0] === 'Obsługa materiału powierzonego' ? x[1] : x[0] === 'Projekt indywidualny' ? fmtMin(pos(P.designMin)) : '', x[2]]));
   r.fin.forEach(x => rows.push([x[0], r.qty + ' szt.', x[2]]));
   r.mats.forEach(m => { if(m.material > 0) rows.push(['Materiał: ' + m.name, '', m.material]); });
@@ -1190,6 +1246,16 @@ function offerHTML(r){
 }
 
 let lastFocus;
+window.addEventListener('beforeprint', () => { if(!$('#modal').hidden) document.body.classList.add('printing'); });
+window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
+function trapFocus(e, box){
+  if(e.key !== 'Tab') return;
+  const f = [...box.querySelectorAll('button,input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && !x.hidden && x.offsetParent !== null);
+  if(!f.length) return;
+  const a = f[0], z = f[f.length - 1];
+  if(e.shiftKey && document.activeElement === a){ e.preventDefault(); z.focus(); }
+  else if(!e.shiftKey && (document.activeElement === z || !box.contains(document.activeElement))){ e.preventDefault(); a.focus(); }
+}
 function openOffer(){
   const r = last || calc();
   if(!(r.gross > 0)){ toast('Najpierw uzupełnij wycenę: czas lasera lub inne pozycje.'); return; }
@@ -1205,7 +1271,10 @@ function closeOffer(){
   document.body.style.overflow = '';
   if(lastFocus && lastFocus.focus) lastFocus.focus();
 }
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#modal').hidden) closeOffer(); });
+document.addEventListener('keydown', e => {
+  if($('#modal').hidden) return;
+  if(e.key === 'Escape') closeOffer(); else trapFocus(e, $('#modal'));
+});
 
 let h2pPromise, dlPromise;
 function loadH2P(){
@@ -1343,6 +1412,7 @@ document.addEventListener('input', e => { if(e.target.dataset && e.target.datase
 document.addEventListener('keydown', e => {
   if($('#takeDlg').hidden) return;
   if(e.key === 'Escape') closeTake();
+  trapFocus(e, $('#takeDlg'));
   if(e.key === 'Enter' && e.target.dataset && e.target.dataset.take){ e.preventDefault(); confirmTake(); }
 });
 $('#takeDlg').addEventListener('click', e => { if(e.target.id === 'takeDlg') closeTake(); });
@@ -1354,7 +1424,7 @@ if('IntersectionObserver' in window){
   new IntersectionObserver(es => es.forEach(en => $('#bar').classList.toggle('hide', en.isIntersecting)), {threshold:0.15}).observe($('#tag'));
 }
 
-fillStatic(); renderRates(); renderMats(); labels(); update(); regSummary(); initDb();
+fillStatic(); document.querySelectorAll('input[data-p][inputmode]').forEach(markInvalid); renderRates(); renderMats(); labels(); update(); regSummary(); initDb();
 })();
 </script>
 </body>
