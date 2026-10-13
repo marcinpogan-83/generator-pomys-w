@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalkulator wyceny – laser.cat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9DCC8; --surface:#F8F2E9; --surface-2:#F1E6D6; --ink:#3B281B; --muted:#6E5442;
+  --line:#C9B092; --line-soft:#DCC9AF; --accent:#4F772D; --accent-ink:#F8F2E9;
+  --warn:#A8441A; --focus:#F3722C;
+  --tag-bg:#3B281B; --tag-ink:#E1CEB4; --tag-muted:#BA9E81; --tag-total:#F3722C; --tag-line:#5E4636; --tag-good:#9CC27A;
+  --serif:"IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1E140D; --surface:#2A1D13; --surface-2:#33241A; --ink:#EADBC6; --muted:#BA9E81;
+    --line:#5E4636; --line-soft:#45321F; --accent:#8DBF63; --accent-ink:#1E140D;
+    --warn:#F59A62; --tag-bg:#E1CEB4; --tag-ink:#3B281B; --tag-muted:#6E5442; --tag-total:#B5491A;
+    --tag-line:#C9B092; --tag-good:#4F772D; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1E140D; --surface:#2A1D13; --surface-2:#33241A; --ink:#EADBC6; --muted:#BA9E81;
+  --line:#5E4636; --line-soft:#45321F; --accent:#8DBF63; --accent-ink:#1E140D;
+  --warn:#F59A62; --tag-bg:#E1CEB4; --tag-ink:#3B281B; --tag-muted:#6E5442; --tag-total:#B5491A;
+  --tag-line:#C9B092; --tag-good:#4F772D; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:16px;line-height:1.55}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 48px}
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;margin-bottom:28px;border-bottom:1.5px solid var(--line);padding-bottom:18px}
+.brand{font-weight:700;font-size:15px;letter-spacing:.01em;color:var(--muted);margin:0 0 4px}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0;font-weight:600}
+.top p{margin:0;color:var(--muted);font-size:15px;max-width:44ch}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:32px;align-items:start}
+section.blk{padding:22px 0 26px;border-bottom:1px solid var(--line-soft)}
+section.blk:first-child{padding-top:0}
+h2{font-size:21px;font-weight:600;margin:0 0 4px}
+.lead{margin:0 0 16px;color:var(--muted);font-size:15px;max-width:62ch}
+
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label,.flabel{font-size:14px;font-weight:500}
+.hint{font-size:13px;color:var(--muted);margin:2px 0 0}
+input[type=text],input:not([type]){
+  width:100%;font:500 16px/1.3 var(--mono);color:var(--ink);background:var(--surface);
+  border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;min-height:44px}
+input.mat-name,input#pname,input.txt{font-family:var(--serif);font-weight:500}
+input::placeholder{color:var(--muted);opacity:.7}
+
+.seg{display:flex;flex-wrap:wrap;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg label{flex:1 1 120px;position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg span{display:block;padding:10px 12px;text-align:center;font-size:15px;line-height:1.3;border-left:1px solid var(--line-soft);min-height:44px}
+.seg label:first-child span{border-left:0}
+.seg small{display:block;font:400 12px/1.3 var(--mono);color:var(--muted)}
+.seg input:checked + span{background:var(--accent);color:var(--accent-ink)}
+.seg input:checked + span small{color:var(--accent-ink);opacity:.85}
+.seg input:focus-visible + span{outline:2px solid var(--focus);outline-offset:-3px}
+
+.check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px 0;font-size:15px}
+.check input{appearance:none;-webkit-appearance:none;flex:none;width:22px;height:22px;margin:1px 0 0;border:1.5px solid var(--line);border-radius:5px;background:var(--surface);display:grid;place-content:center;cursor:pointer}
+.check input::after{content:"";width:11px;height:6px;border-left:2.5px solid var(--accent-ink);border-bottom:2.5px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.check input:checked{background:var(--accent);border-color:var(--accent)}
+.check input:checked::after{opacity:1}
+.check small{display:block;font:400 13px/1.35 var(--mono);color:var(--muted)}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0 18px}
+
+.mats{display:grid;gap:16px}
+.mat{border:1.5px solid var(--line);border-radius:12px;padding:16px;background:var(--surface-2);display:grid;gap:14px}
+.mat-head{display:flex;align-items:center;gap:12px}
+.badge{flex:none;width:34px;height:34px;border-radius:50%;border:1.5px dashed var(--ink);display:grid;place-items:center;font-weight:700;font-size:16px}
+.mat-head input,.mat-head select{flex:1;min-width:0}
+.mat.is-client .sheet{display:none}
+.link{background:none;border:0;color:var(--warn);font:500 14px var(--serif);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:8px 4px;min-height:44px}
+.btn{font:600 15px var(--serif);border-radius:8px;padding:11px 16px;min-height:44px;cursor:pointer;border:1.5px solid var(--ink);background:transparent;color:var(--ink)}
+.btn.add{border-style:dashed;width:100%}
+.btn:hover{background:var(--surface)}
+
+.notice{border-left:3px solid var(--warn);padding:8px 12px;margin:12px 0 0;font-size:14px;color:var(--ink);background:var(--surface)}
+
+/* Zawieszka z wyceną */
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+.tag{position:relative;background:var(--tag-bg);color:var(--tag-ink);border-radius:18px;padding:40px 24px 22px}
+.tag::before{content:"";position:absolute;top:14px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 0 1.5px var(--tag-line)}
+.tag::after{content:"";position:absolute;inset:7px;border:1px dashed var(--tag-line);border-radius:13px;pointer-events:none}
+.tag h2{font-size:16px;font-weight:500;color:var(--tag-muted);margin:0 0 2px}
+.tag .pname{font-size:20px;font-weight:600;margin:0 0 14px;line-height:1.25;overflow-wrap:anywhere}
+.lines{list-style:none;margin:0;padding:0;font-size:14.5px}
+.lines li{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--tag-line)}
+.lines .lbl{min-width:0}
+.lines .det{display:block;font:400 12px/1.4 var(--mono);color:var(--tag-muted)}
+.lines .amt{font:500 14px/1.5 var(--mono);white-space:nowrap;text-align:right}
+.lines li.minus .amt{color:var(--tag-good)}
+.lines li.empty{color:var(--tag-muted);border-bottom:0;font-style:italic}
+.total{margin-top:16px}
+.total .tl{font-size:14px;color:var(--tag-muted)}
+.total .tv{font:600 clamp(36px,8vw,46px)/1.05 var(--serif);color:var(--tag-total);font-variant-numeric:tabular-nums}
+.total .sub{display:flex;justify-content:space-between;gap:10px;font:400 13px/1.6 var(--mono);color:var(--tag-ink);margin-top:6px}
+.tag .warns{list-style:none;margin:14px 0 0;padding:0;font-size:13.5px}
+.tag .warns li{padding:4px 0 4px 16px;position:relative}
+.tag .warns li::before{content:"";position:absolute;left:0;top:11px;width:7px;height:7px;border-radius:50%;background:var(--tag-total)}
+.tag .copy{margin-top:16px;width:100%;background:var(--tag-ink);color:var(--tag-bg);border:0;font:600 15px var(--serif);border-radius:8px;min-height:46px;cursor:pointer}
+.stats{margin:14px 6px 0;font-size:14px;color:var(--muted);display:grid;gap:4px}
+.stats b{font:600 14px var(--mono);color:var(--ink)}
+.side .reset{margin-top:12px;width:100%}
+
+details.rates{margin-top:30px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface)}
+details.rates summary{cursor:pointer;padding:16px 18px;font-weight:600;font-size:17px;list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:44px}
+details.rates summary::-webkit-details-marker{display:none}
+details.rates summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg);transition:transform .15s}
+details.rates[open] summary::after{transform:rotate(-135deg)}
+.rates-body{padding:0 18px 18px}
+.rgroup{margin-top:14px}
+.rgroup h3{font-size:15px;margin:0 0 8px;font-weight:600;color:var(--muted)}
+.rgroup .row{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+
+.bar{display:none}
+select{width:100%;font:500 16px/1.3 var(--serif);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;min-height:44px}
+.tabs{display:flex;gap:4px;margin:-10px 0 26px;border-bottom:1.5px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1.5px;padding:10px 16px;min-height:46px;font:600 17px var(--serif);color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--focus)}
+.tabs .cnt{font:500 13px var(--mono);margin-left:6px;color:var(--muted)}
+body.v-stock .bar{display:none!important}
+.link.inline{padding:0;min-height:0;font-size:inherit;vertical-align:baseline}
+.mat:not(.linked) .linked-only{display:none}
+.mat.linked .manual{display:none}
+.mat.is-client .mat-calc{display:none}
+.mat-info{font:400 13px/1.55 var(--mono);color:var(--muted);margin:-4px 0 0}
+.mat-info.warn{color:var(--warn)}
+.pair{display:flex;align-items:center;gap:6px}
+.pair input{min-width:0}
+.pair span{color:var(--muted)}
+.mat-calc{padding:10px 12px;border-radius:8px;background:var(--surface);border:1px dashed var(--line);font-size:14.5px;line-height:1.45}
+.mat-calc:empty{display:none}
+.mat-calc b{font:600 15.5px var(--mono)}
+.mat-calc .d{display:block;font:400 12.5px/1.5 var(--mono);color:var(--muted);margin-top:2px}
+.mat-calc .w{display:block;color:var(--warn);font-size:13.5px;margin-top:4px}
+
+/* Magazyn materiałów */
+.sync{font-size:13.5px;color:var(--muted);margin:-8px 0 16px;display:flex;align-items:center;gap:8px}
+.sync::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.sync.local::before{background:var(--tag-muted)}
+.sync.error::before{background:var(--warn)}
+.reg{display:grid;gap:12px}
+.reg-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;padding:14px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.reg-row .cell{min-width:0}
+.reg-row .c-name,.reg-row .c-out{grid-column:1/-1}
+.reg-row .c-out{font:400 13px/1.5 var(--mono);color:var(--muted)}
+.reg-row .c-del{grid-column:1/-1;justify-self:end;margin:-10px 0 -10px}
+.reg-row label{font-size:13.5px;font-weight:500;display:block;margin-bottom:4px}
+.reg-th{display:none!important}
+.reg-empty{padding:28px 16px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:12px}
+.reg-sum{display:flex;flex-wrap:wrap;gap:6px 26px;margin-top:16px;font-size:15px}
+.reg-sum b{font:600 15px var(--mono)}
+@media (min-width:900px){
+  .reg{gap:0;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2)}
+  .reg-row{grid-template-columns:minmax(180px,2.2fr) 1.25fr .85fr .85fr 1fr .85fr 1.5fr 60px;align-items:center;border:0;border-radius:0;border-top:1px solid var(--line-soft);padding:8px 14px;gap:10px;background:none}
+  .reg-row .c-name,.reg-row .c-out{grid-column:auto}
+  .reg-row .c-del{grid-column:auto;justify-self:end;margin:0}
+  .reg-th{display:grid!important;border-top:0;font-size:13px;font-weight:600;color:var(--muted);padding:12px 14px 8px}
+  .reg-row:not(.reg-th) label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .reg-empty{border:0;border-radius:0}
+}
+textarea{width:100%;font:400 16px/1.45 var(--serif);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;min-height:92px;resize:vertical}
+.tag .gen{margin-top:18px;width:100%;background:var(--tag-total);color:var(--tag-bg);border:0;font:600 16px var(--serif);border-radius:8px;min-height:48px;cursor:pointer}
+.tag .gen + .copy{margin-top:10px;background:transparent;color:var(--tag-ink);box-shadow:inset 0 0 0 1.5px var(--tag-line)}
+details.firm{margin-top:30px}
+.tag .stock{margin-top:10px;width:100%;background:transparent;color:var(--tag-ink);box-shadow:inset 0 0 0 1.5px var(--tag-line);border:0;font:600 15px var(--serif);border-radius:8px;min-height:46px;cursor:pointer}
+.tag .taken{font-size:13.5px;line-height:1.5;margin:14px 0 0;padding:10px 12px;border-radius:8px;box-shadow:inset 0 0 0 1px var(--tag-line)}
+.tag .taken b{font-weight:600}
+.tag .taken button{background:none;border:0;color:var(--tag-total);text-decoration:underline;text-underline-offset:3px;font:600 13.5px var(--serif);cursor:pointer;padding:8px 0 0;display:block}
+.dlg{position:fixed;inset:0;z-index:55;background:rgba(30,20,13,.55);display:grid;place-items:center;padding:16px}
+.dlg-box{background:var(--surface);color:var(--ink);border-radius:14px;width:min(100%,480px);max-height:90vh;overflow:auto;padding:22px 20px 18px}
+.dlg-box h2{font-size:20px;margin:0 0 4px}
+.dlg-row{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+.dlg-row .nm{font-weight:600;overflow-wrap:anywhere}
+.dlg-row .d{display:block;font:400 12.5px/1.5 var(--mono);color:var(--muted)}
+.dlg-row .d.w{color:var(--warn)}
+.dlg-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+details.firm + details.rates{margin-top:14px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.6;cursor:progress}
+
+/* Podgląd oferty */
+.modal{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.modal-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1.5px solid var(--line);background:var(--surface)}
+.modal-bar h2{margin:0;font-size:18px}
+.modal-actions{display:flex;gap:8px;flex-wrap:wrap}
+.modal-body{flex:1;overflow:auto;padding:20px 12px 48px;-webkit-overflow-scrolling:touch}
+.paper{max-width:794px;margin:0 auto;box-shadow:0 0 0 1px var(--line),0 3px 0 var(--line)}
+
+/* Dokument oferty: stałe kolory papieru, niezależne od motywu */
+.of-wrap{container-type:inline-size;background:#FFFDF9}
+.of{background:#FFFDF9;color:#3B281B;font-family:var(--serif);font-size:13.5px;line-height:1.5;padding:44px 52px 36px}
+.of-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.of-brand{font:700 30px/1.05 var(--serif);letter-spacing:-.01em;margin:0 0 10px;color:#3B281B}
+.of-firm{font-size:12px;color:#6E5442;line-height:1.55;margin:0}
+.of-meta{text-align:right}
+.of-title{font:600 34px/1 var(--serif);margin:0 0 12px;color:#3B281B}
+.of-meta dl{margin:0;display:grid;grid-template-columns:auto auto;justify-content:end;gap:3px 14px;font-size:12.5px}
+.of-meta dt{color:#6E5442}
+.of-meta dd{margin:0;font-family:var(--mono);font-size:12px;text-align:right}
+.of-kerf{border:0;border-top:1.5px dashed #BA9E81;margin:24px 0}
+.of-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:28px}
+.of h3{font:600 12.5px var(--serif);color:#6E5442;margin:0 0 4px}
+.of p{margin:0}
+.of-proj{font:600 19px/1.3 var(--serif);margin:0 0 4px!important}
+.of-notes{white-space:pre-wrap;margin-top:6px!important}
+.of-mats{margin:6px 0 0;padding:0;list-style:none;font-size:12.5px;color:#6E5442}
+table.of-t{width:100%;border-collapse:collapse;margin-top:6px}
+.of-t th{font:500 12px var(--serif);color:#6E5442;text-align:left;border-bottom:1.5px solid #3B281B;padding:6px 0}
+.of-t th:last-child,.of-t td.a{text-align:right}
+.of-t td{padding:9px 0;border-bottom:1px solid #E1CEB4;vertical-align:top}
+.of-t td.a{font-family:var(--mono);font-size:13px;white-space:nowrap;padding-left:16px}
+.of-t .d{display:block;font-size:12px;color:#6E5442}
+.of-t tr.minus td.a{color:#4F772D}
+.of-t tr{break-inside:avoid}
+.of-sum{margin:14px 0 0 auto;width:min(100%,330px)}
+.of-sum div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px}
+.of-sum .v{font-family:var(--mono)}
+.of-sum .of-total{border-top:1.5px solid #3B281B;margin-top:6px;padding-top:9px;align-items:baseline}
+.of-total .l{font-weight:600}
+.of-total .v{font:600 26px var(--serif);color:#B5491A}
+.of-cond{margin:6px 0 0;padding-left:18px;font-size:12.5px}
+.of-cond li{margin:3px 0}
+.of-foot{margin-top:28px;padding-top:12px;border-top:1px solid #E1CEB4;font-size:11.5px;color:#6E5442;display:flex;justify-content:space-between;gap:6px 18px;flex-wrap:wrap}
+.of-foot span + span{margin-left:0}
+@container (max-width:600px){
+  .of{padding:28px 20px 24px}
+  .of-head{flex-direction:column}
+  .of-meta{text-align:left}
+  .of-meta dl{justify-content:start}
+  .of-meta dd{text-align:left}
+  .of-grid{grid-template-columns:1fr;gap:18px}
+}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .side{position:static}
+  .wrap{padding-bottom:110px}
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;align-items:center;justify-content:space-between;gap:12px;
+       background:var(--tag-bg);color:var(--tag-ink);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));transition:transform .2s}
+  .bar.hide{transform:translateY(110%)}
+  .bar .bl{font-size:13px;color:var(--tag-muted);display:block}
+  .bar .bv{font:600 24px/1.1 var(--serif);color:var(--tag-total)}
+  .bar button{background:var(--tag-ink);color:var(--tag-bg);border:0;border-radius:8px;font:600 15px var(--serif);padding:10px 16px;min-height:44px;cursor:pointer}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="brand">laser.cat</p>
+      <h1>Kalkulator wyceny</h1>
+    </div>
+    <p>Stawki z cennika v2, ceny netto. Wszystkie stawki zmienisz na dole strony.</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Widok">
+    <button type="button" role="tab" id="tabQuote" aria-selected="true" aria-controls="viewQuote" data-view="quote">Wycena</button>
+    <button type="button" role="tab" id="tabStock" aria-selected="false" aria-controls="viewStock" data-view="stock">Materiały<span class="cnt" id="regCnt"></span></button>
+  </nav>
+
+  <section id="viewStock" role="tabpanel" aria-labelledby="tabStock" hidden>
+    <h2 style="font-size:24px;margin-bottom:6px">Magazyn materiałów</h2>
+    <p class="lead">Wpisz wymiary i cenę arkusza oraz liczbę arkuszy na stanie. W wycenie wybierasz materiał z listy, a kalkulator sam liczy koszt materiału na jedną sztukę.</p>
+    <p class="sync local" id="syncNote">Zapisywane w tej przeglądarce.</p>
+    <div class="reg" id="reg"></div>
+    <button type="button" class="btn add" id="addReg" style="margin-top:14px">Dodaj materiał</button>
+    <div class="reg-sum" id="regSum"></div>
+  </section>
+
+  <div id="viewQuote" role="tabpanel" aria-labelledby="tabQuote">
+  <div class="layout">
+    <main>
+      <section class="blk">
+        <h2>Projekt</h2>
+        <p class="lead">Podaj nazwę i liczbę identycznych sztuk produktu.</p>
+        <div class="row">
+          <div class="field" style="grid-column:span 2;min-width:0">
+            <label for="pname">Nazwa projektu</label>
+            <input id="pname" data-p="name" placeholder="np. Tabliczka na drzwi z imieniem">
+          </div>
+          <div class="field">
+            <label for="qty">Liczba sztuk</label>
+            <input id="qty" data-p="qty" inputmode="numeric">
+            <p class="hint" id="qtyHint"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <h2>Materiały i czas lasera</h2>
+        <p class="lead">Dla każdego materiału wpisz czas cięcia i grawerowania jednej sztuki, np. z podglądu w LightBurn (format 4:30 albo 4,5). Jeśli element jest tylko cięty albo tylko grawerowany, drugie pole zostaw puste.</p>
+        <p class="hint" style="margin:-8px 0 14px">Materiał wybierz z magazynu, a koszt na sztukę policzy się z ceny arkusza. <button type="button" class="link inline" data-go="stock">Otwórz magazyn</button></p>
+        <div class="mats" id="mats"></div>
+        <button type="button" class="btn add" id="addMat" style="margin-top:14px">Dodaj drugi materiał</button>
+        <div id="asmNotice"></div>
+      </section>
+
+      <section class="blk">
+        <h2>Personalizacja</h2>
+        <p class="lead">Ile sztuk ma inny wzór lub napis, np. różne imiona. Zostaw 0, jeśli wszystkie są identyczne.</p>
+        <div class="row">
+          <div class="field">
+            <label for="pers">Sztuki z innym wzorem</label>
+            <input id="pers" data-p="pers" inputmode="numeric">
+            <p class="hint" id="persHint"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <h2>Przygotowanie i projekt</h2>
+        <div class="checks">
+          <label class="check"><input type="checkbox" data-p="filePrep"><span>Przygotowanie pliku klienta<small id="prepLbl"></small></span></label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="field">
+            <label for="adapt">Adaptacja projektu, zł</label>
+            <input id="adapt" data-p="adapt" inputmode="decimal" placeholder="od 40">
+          </div>
+          <div class="field">
+            <label for="designMin">Projekt od zera, min</label>
+            <input id="designMin" data-p="designMin" inputmode="decimal" placeholder="np. 20">
+            <p class="hint" id="designHint"></p>
+          </div>
+          <div class="field">
+            <label for="tests">Próby materiału, szt.</label>
+            <input id="tests" data-p="tests" inputmode="numeric" placeholder="0">
+            <p class="hint" id="testHint"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <h2>Obróbka i wykończenie</h2>
+        <p class="lead">Czas pracy ręcznej i koszt środków podaj na jedną sztukę. Czas schnięcia pomiń, liczy się tylko praca.</p>
+        <div class="row">
+          <div class="field">
+            <label for="sandMin">Szlifowanie, min/szt.</label>
+            <input id="sandMin" data-p="sandMin" inputmode="decimal" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="asmMin">Klejenie i montaż, min/szt.</label>
+            <input id="asmMin" data-p="asmMin" inputmode="decimal" placeholder="0">
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div class="field">
+            <label for="oilMin">Olejowanie lub bejcowanie, min/szt.</label>
+            <input id="oilMin" data-p="oilMin" inputmode="decimal" placeholder="np. 5">
+          </div>
+          <div class="field">
+            <label for="oilCost">Olej lub bejca, zł/szt.</label>
+            <input id="oilCost" data-p="oilCost" inputmode="decimal" placeholder="np. 1,50">
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div class="field">
+            <label for="gildMin">Złocenie, min/szt.</label>
+            <input id="gildMin" data-p="gildMin" inputmode="decimal" placeholder="np. 15">
+          </div>
+          <div class="field">
+            <label for="gildCost">Płatki, farba, pozłotka, zł/szt.</label>
+            <input id="gildCost" data-p="gildCost" inputmode="decimal" placeholder="np. 4">
+          </div>
+        </div>
+        <p class="hint" id="handHint"></p>
+        <div class="checks" style="margin-top:8px">
+          <label class="check"><input type="checkbox" data-p="paint"><span>Malowanie<small id="paintLbl"></small></span></label>
+          <label class="check"><input type="checkbox" data-p="pack"><span>Indywidualne pakowanie<small id="packLbl"></small></span></label>
+        </div>
+        <div class="row" id="paintRow" style="margin-top:6px">
+          <div class="field">
+            <label for="paintPrice">Cena malowania, zł/szt.</label>
+            <input id="paintPrice" data-p="paintPrice" inputmode="decimal">
+            <p class="hint">Cennik: 25–60 zł/szt. zależnie od wielkości i liczby kolorów.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <h2>Termin i VAT</h2>
+        <div class="field" style="margin-bottom:14px">
+          <span class="flabel" id="prioLbl">Termin realizacji</span>
+          <div class="seg" role="radiogroup" aria-labelledby="prioLbl">
+            <label><input type="radio" name="prio" data-p="prio" value="none"><span>Standardowy<small>bez dopłaty</small></span></label>
+            <label><input type="radio" name="prio" data-p="prio" value="prio"><span>Priorytet<small id="prioPct"></small></span></label>
+            <label><input type="radio" name="prio" data-p="prio" value="express"><span>Ekspres do 24 h<small id="expPct"></small></span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="flabel" id="vatLbl">Podatek VAT</span>
+          <div class="seg" role="radiogroup" aria-labelledby="vatLbl">
+            <label><input type="radio" name="vat" data-p="vatMode" value="zw"><span>Zwolniony z VAT<small>sprzedaż bez VAT</small></span></label>
+            <label><input type="radio" name="vat" data-p="vatMode" value="vat"><span>Doliczaj VAT<small id="vatPct"></small></span></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <h2>Oferta dla klienta</h2>
+        <p class="lead">Te dane trafią do oferty PDF. Dane swojej firmy ustawisz raz, na dole strony.</p>
+        <div class="row">
+          <div class="field"><label for="oClient">Klient</label><input id="oClient" class="txt" data-o="client" placeholder="Imię i nazwisko lub firma"></div>
+          <div class="field"><label for="oContact">Osoba kontaktowa</label><input id="oContact" class="txt" data-o="contact" placeholder="opcjonalnie"></div>
+          <div class="field"><label for="oInfo">E-mail lub telefon klienta</label><input id="oInfo" class="txt" data-o="clientInfo" placeholder="opcjonalnie"></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label for="oNum">Numer oferty</label><input id="oNum" data-o="number" placeholder="nadawany automatycznie"></div>
+          <div class="field"><label for="oDays">Ważność, dni</label><input id="oDays" data-o="days" inputmode="numeric"></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div class="field"><label for="oLead">Termin realizacji</label><input id="oLead" class="txt" data-o="lead"></div>
+          <div class="field"><label for="oPay">Warunki płatności</label><input id="oPay" class="txt" data-o="payment"></div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label for="oNotes">Opis i uwagi w ofercie</label>
+          <textarea id="oNotes" data-o="notes" placeholder="np. Tabliczka 20×10 cm, sklejka olejowana, napis grawerowany, dwa otwory montażowe"></textarea>
+        </div>
+      </section>
+
+      <details class="rates firm" id="firm">
+        <summary>Dane Twojej firmy do oferty</summary>
+        <div class="rates-body">
+          <p class="hint">Zapisują się w tej przeglądarce i trafiają do nagłówka każdej oferty.</p>
+          <div class="row" style="margin-top:12px">
+            <div class="field"><label for="fName">Nazwa</label><input id="fName" class="txt" data-f="name"></div>
+            <div class="field"><label for="fOwner">Właściciel</label><input id="fOwner" class="txt" data-f="owner" placeholder="Imię i nazwisko"></div>
+            <div class="field"><label for="fNip">NIP</label><input id="fNip" data-f="nip" inputmode="numeric"></div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div class="field"><label for="fAddr">Adres</label><input id="fAddr" class="txt" data-f="address" placeholder="Ulica, kod, miejscowość"></div>
+            <div class="field"><label for="fPhone">Telefon</label><input id="fPhone" data-f="phone" inputmode="tel"></div>
+            <div class="field"><label for="fEmail">E-mail</label><input id="fEmail" data-f="email" inputmode="email"></div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div class="field"><label for="fWww">Strona lub profil</label><input id="fWww" class="txt" data-f="www"></div>
+            <div class="field"><label for="fVat">Podstawa zwolnienia z VAT</label><input id="fVat" class="txt" data-f="vatBasis"><p class="hint">Pojawia się w ofercie, gdy wycena jest bez VAT.</p></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="rates" id="rates">
+        <summary>Stawki cennika</summary>
+        <div class="rates-body">
+          <p class="hint">Zmiany zapisują się w tej przeglądarce i od razu przeliczają wycenę.</p>
+          <div id="ratesForm"></div>
+          <button type="button" class="btn" id="resetRates" style="margin-top:18px">Przywróć stawki z cennika v2</button>
+        </div>
+      </details>
+    </main>
+
+    <aside class="side" aria-label="Wycena">
+      <div class="tag" id="tag">
+        <h2>Wycena</h2>
+        <p class="pname" id="tName"></p>
+        <ul class="lines" id="tLines"></ul>
+        <div class="total">
+          <div class="tl" id="tTotalLbl">Razem</div>
+          <div class="tv" id="tTotal">0,00 zł</div>
+          <div class="sub"><span>Za sztukę</span><span id="tPiece">0,00 zł</span></div>
+          <div class="sub" id="tVatRow"><span id="tVatLbl"></span><span id="tVat"></span></div>
+        </div>
+        <ul class="warns" id="tWarns"></ul>
+        <button type="button" class="gen" id="genOffer">Generuj ofertę</button>
+        <button type="button" class="copy" id="copy">Kopiuj wycenę dla klienta</button>
+        <button type="button" class="stock" id="takeStock" hidden>Zrealizowano: zdejmij z magazynu</button>
+        <div class="taken" id="takenNote" hidden></div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <button type="button" class="btn reset" id="reset">Nowa wycena</button>
+    </aside>
+  </div>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <div><span class="bl">Razem</span><span class="bv" id="barTotal">0,00 zł</span></div>
+  <button type="button" id="barBtn">Szczegóły</button>
+</div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" hidden>
+  <div class="modal-bar">
+    <h2 id="mTitle">Podgląd oferty</h2>
+    <div class="modal-actions">
+      <button type="button" class="btn primary" id="pdfBtn">Pobierz PDF</button>
+      <button type="button" class="btn" id="mCopy">Kopiuj tekst</button>
+      <button type="button" class="btn" id="mClose">Zamknij</button>
+    </div>
+  </div>
+  <div class="modal-body"><div class="paper" id="ofPreview"></div></div>
+</div>
+<div class="dlg" id="takeDlg" role="dialog" aria-modal="true" aria-labelledby="takeTitle" hidden>
+  <div class="dlg-box">
+    <h2 id="takeTitle">Zdejmij materiał z magazynu</h2>
+    <p class="hint">Zużycie zaokrąglone w górę do pół arkusza. Popraw liczbę, jeśli zużyłeś więcej albo ciąłeś z resztek.</p>
+    <div id="takeRows"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="takeCancel">Anuluj</button>
+      <button type="button" class="btn primary" id="takeOk">Zdejmij z magazynu</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const KEY_S = 'lasercat-kalk-stawki-v1', KEY_P = 'lasercat-kalk-projekt-v1', KEY_F = 'lasercat-kalk-firma-v1', KEY_N = 'lasercat-kalk-numer-oferty';
+const DEF_F = {name:'laser.cat', owner:'', address:'', nip:'', phone:'', email:'', www:'', vatBasis:'art. 113 ust. 1 ustawy o VAT'};
+const defOffer = () => ({client:'', contact:'', clientInfo:'', number:'', days:'14', lead:'7 dni roboczych od akceptacji projektu', payment:'Przedpłata 50%, reszta przy odbiorze', notes:''});
+
+const DEF_S = {rateStd:2.5, rateHard:3.5, clientFee:25, minOrder:45,
+  prepStd:20, designHour:90, testPrice:30,
+  pers1:2, pers2:1.5, pers3:1,
+  handHour:60, paint:40, pack:5,
+  prio:30, express:50, d1:5, d2:10, d3:15, d4:20,
+  waste:10, markup:15, vat:23, sheetMargin:5, partGap:3};
+
+const RATE_SCHEMA = [
+  ['Laser', [['rateStd','Materiał standardowy','zł/min'],['rateHard','Materiał trudniejszy','zł/min'],['clientFee','Obsługa materiału klienta','zł/materiał'],['minOrder','Minimalna wartość zamówienia','zł']]],
+  ['Przygotowanie', [['prepStd','Przygotowanie pliku','zł'],['designHour','Projekt od zera','zł/godz.'],['testPrice','Próba materiału','zł/szt.']]],
+  ['Personalizacja', [['pers1','Do 10 szt.','zł/szt.'],['pers2','11–50 szt.','zł/szt.'],['pers3','51–100 szt.','zł/szt.']]],
+  ['Obróbka i wykończenie', [['handHour','Praca ręczna','zł/godz.'],['paint','Malowanie, domyślnie','zł/szt.'],['pack','Pakowanie','zł/szt.']]],
+  ['Termin', [['prio','Priorytet','%'],['express','Ekspres do 24 h','%']]],
+  ['Rabaty ilościowe', [['d1','11–25 szt.','%'],['d2','26–50 szt.','%'],['d3','51–100 szt.','%'],['d4','101–250 szt.','%']]],
+  ['Materiał i podatek', [['waste','Zapas na odpad','%'],['markup','Narzut na materiał','%'],['sheetMargin','Margines arkusza','mm'],['partGap','Odstęp między elementami','mm'],['vat','Stawka VAT','%']]]
+];
+
+const newMat = name => ({name:name||'', cat:'std', client:false, cut:'', eng:'', sheet:'', perSheet:'', stockId:'', pw:'', ph:''});
+const defP = () => ({name:'', qty:'1', mats:[newMat('Sklejka 4 mm')], pers:'0', filePrep:false, adapt:'', designMin:'', tests:'',
+  sandMin:'', asmMin:'', oilMin:'', oilCost:'', gildMin:'', gildCost:'', paint:false, paintPrice:'', pack:false, prio:'none', vatMode:'zw', offer:defOffer(), taken:null});
+
+function load(key, def){
+  try{ const raw = localStorage.getItem(key); if(!raw) return def; return Object.assign(def, JSON.parse(raw)); }
+  catch(e){ return def; }
+}
+let S = load(KEY_S, Object.assign({}, DEF_S));
+delete S.oil; delete S.gild;
+if('clientSurcharge' in S){ delete S.clientSurcharge; S.clientFee = DEF_S.clientFee; if(!S.markup) S.markup = DEF_S.markup; }
+let P = load(KEY_P, defP());
+if(!Array.isArray(P.mats) || !P.mats.length) P.mats = [newMat('Sklejka 4 mm')];
+P.mats = P.mats.slice(0,2).map(m => Object.assign(newMat(), m));
+if(P.designH !== undefined){ const h = parseFloat(String(P.designH).replace(',','.')) || 0; if(h > 0 && !P.designMin) P.designMin = String(Math.round(h*60)); delete P.designH; }
+['oil','gild'].forEach(k => { delete P[k]; ['Min','Cost'].forEach(x => { if(P[k+x] == null) P[k+x] = ''; }); });
+P.offer = Object.assign(defOffer(), (P.offer && typeof P.offer === 'object') ? P.offer : {});
+let F = load(KEY_F, Object.assign({}, DEF_F));
+
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{ localStorage.setItem(KEY_S, JSON.stringify(S)); localStorage.setItem(KEY_P, JSON.stringify(P)); localStorage.setItem(KEY_F, JSON.stringify(F)); }catch(e){}
+  }, 250);
+}
+
+const num = v => { if(v===''||v==null||v===false) return 0; const n = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isFinite(n) ? n : 0; };
+const pos = v => Math.max(0, num(v));
+const nf = (n, d=2) => n.toLocaleString('pl-PL',{minimumFractionDigits:d, maximumFractionDigits:d});
+const zl = n => nf(n) + ' zł';
+const rateTxt = n => nf(n) + ' zł';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseTime(v){
+  v = String(v||'').trim().replace(/,/g,'.');
+  if(!v) return 0;
+  if(v.includes(':')){
+    const p = v.split(':').map(x => parseFloat(x) || 0);
+    if(p.length === 2) return Math.max(0, p[0] + p[1]/60);
+    if(p.length >= 3) return Math.max(0, p[0]*60 + p[1] + p[2]/60);
+  }
+  const n = parseFloat(v);
+  return isFinite(n) && n > 0 ? n : 0;
+}
+function fmtMin(m){
+  if(m < 60) return nf(m, m % 1 ? 1 : 0) + ' min';
+  const h = Math.floor(m/60), r = Math.round(m - h*60);
+  return h + ' godz. ' + (r ? r + ' min' : '');
+}
+
+/* ---------- magazyn materiałów ---------- */
+const KEY_R = 'lasercat-kalk-materialy-v1';
+let REG = new Map();
+let regCol = null;
+const wq = {};
+const cleanItem = x => ({name:String(x.name ?? ''), cat: x.cat === 'hard' ? 'hard' : 'std', w:String(x.w ?? ''), h:String(x.h ?? ''),
+  price:String(x.price ?? ''), qty:String(x.qty ?? ''), created: Number(x.created) || 0});
+(function loadLocalReg(){
+  try{ const a = JSON.parse(localStorage.getItem(KEY_R) || '[]'); if(Array.isArray(a)) a.forEach(x => { if(x && x.id) REG.set(String(x.id), cleanItem(x)); }); }catch(e){}
+})();
+function saveLocalReg(){ try{ localStorage.setItem(KEY_R, JSON.stringify([...REG].map(([id, v]) => Object.assign({id}, v)))); }catch(e){} }
+const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const regSorted = () => [...REG].map(([id, v]) => Object.assign({id}, v)).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
+
+function setSync(state){
+  const el = $('#syncNote'); if(!el) return;
+  el.className = 'sync' + (state === 'ok' ? '' : ' ' + state);
+  el.textContent = state === 'ok' ? 'Zapisywane na Twoim koncie. Ten sam magazyn zobaczysz na telefonie i na komputerze.'
+    : state === 'error' ? 'Brak połączenia z zapisem na koncie. Zmiany zostają w tej przeglądarce.'
+    : 'Zapisywane tylko w tej przeglądarce.';
+}
+function queueWrite(id, delay){
+  saveLocalReg();
+  if(!regCol) return;
+  const q = wq[id] || (wq[id] = {});
+  clearTimeout(q.timer); q.timerOn = true;
+  q.timer = setTimeout(() => { q.timerOn = false; flush(id); }, delay == null ? 700 : delay);
+}
+async function flush(id, retried){
+  const q = wq[id]; if(!q || !regCol) return;
+  if(q.writing){ q.again = true; return; }
+  q.writing = true;
+  try{
+    const item = REG.get(id);
+    if(item) await regCol.doc(id).set(Object.assign({}, item));
+    else await regCol.doc(id).delete();
+    setSync('ok');
+  }catch(e){
+    const code = e && e.code;
+    if(code === 'unavailable' && !retried){ q.writing = false; setTimeout(() => flush(id, true), 1200 + Math.random()*800); return; }
+    if(code === 'quota_exceeded') toast('Magazyn jest pełny. Usuń nieużywane materiały.');
+    else toast('Nie udało się zapisać materiału na koncie.');
+    setSync('error');
+  }
+  q.writing = false;
+  if(q.again){ q.again = false; flush(id); }
+}
+function flushAll(){ Object.keys(wq).forEach(id => { const q = wq[id]; if(q.timerOn){ clearTimeout(q.timer); q.timerOn = false; flush(id); } }); }
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') flushAll(); });
+
+let regDirty = false, matsDirty = false;
+function refreshFromStore(){
+  const ae = document.activeElement;
+  if(ae && $('#reg').contains(ae)) regDirty = true; else renderReg();
+  if(ae && $('#mats').contains(ae)) matsDirty = true; else renderMats();
+  regSummary(); update();
+}
+document.addEventListener('focusout', () => setTimeout(() => {
+  const ae = document.activeElement;
+  if(regDirty && !(ae && $('#reg').contains(ae))){ regDirty = false; renderReg(); }
+  if(matsDirty && !(ae && $('#mats').contains(ae))){ matsDirty = false; renderMats(); update(); }
+}, 0));
+
+function applyDocs(docs){
+  const next = new Map();
+  docs.forEach(d => { if(d.exists !== false) next.set(d.id, cleanItem(d.data() || {})); });
+  Object.keys(wq).forEach(id => { const q = wq[id]; if(q.writing || q.timerOn){ if(REG.has(id)) next.set(id, REG.get(id)); else next.delete(id); } });
+  const before = JSON.stringify(regSorted());
+  REG = next;
+  if(JSON.stringify(regSorted()) !== before){ saveLocalReg(); refreshFromStore(); }
+}
+async function initDb(){
+  if(!(window.claude && typeof window.claude.use === 'function')){ setSync('local'); return; }
+  try{
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if(!db || !user){ setSync('local'); return; }
+    const uid = await user.id();
+    if(!uid){ setSync('local'); return; }
+    const col = db.doc('data/users/' + uid + '/magazyn').collection('materialy');
+    const first = await col.get();
+    regCol = col;
+    if(first.empty && REG.size){ [...REG.keys()].forEach(id => queueWrite(id, 0)); }
+    else applyDocs(first.docs);
+    setSync('ok');
+    col.onSnapshot(snap => applyDocs(snap.docs), () => setSync('error'));
+  }catch(e){ regCol = null; setSync('local'); }
+}
+
+function regRowHTML(it){
+  const id = esc(it.id), nm = esc(it.name);
+  return `<div class="reg-row" data-rid="${id}">
+    <div class="cell c-name"><label for="r_name_${id}">Materiał</label><input id="r_name_${id}" class="txt" data-r="${id}.name" value="${nm}" placeholder="np. Sklejka brzozowa 4 mm"></div>
+    <div class="cell"><label for="r_cat_${id}">Kategoria</label><select id="r_cat_${id}" data-r="${id}.cat"><option value="std" ${it.cat==='std'?'selected':''}>Standardowy</option><option value="hard" ${it.cat==='hard'?'selected':''}>Trudniejszy</option></select></div>
+    <div class="cell"><label for="r_w_${id}">Szer. arkusza, mm</label><input id="r_w_${id}" data-r="${id}.w" inputmode="decimal" value="${esc(it.w)}" placeholder="600"></div>
+    <div class="cell"><label for="r_h_${id}">Wys. arkusza, mm</label><input id="r_h_${id}" data-r="${id}.h" inputmode="decimal" value="${esc(it.h)}" placeholder="400"></div>
+    <div class="cell"><label for="r_price_${id}">Cena za arkusz, zł</label><input id="r_price_${id}" data-r="${id}.price" inputmode="decimal" value="${esc(it.price)}" placeholder="0,00"></div>
+    <div class="cell"><label for="r_qty_${id}">Liczba arkuszy</label><input id="r_qty_${id}" data-r="${id}.qty" inputmode="decimal" value="${esc(it.qty)}" placeholder="0"></div>
+    <div class="cell c-out" id="rout_${id}"></div>
+    <div class="cell c-del"><button type="button" class="link" data-rdel="${id}" aria-label="Usuń ${nm || 'materiał'}">Usuń</button></div>
+  </div>`;
+}
+function regOut(it){
+  const w = pos(it.w), h = pos(it.h), p = pos(it.price), q = pos(it.qty);
+  const parts = [];
+  if(w && h && p) parts.push(nf(p / (w*h/1e6)) + ' zł/m²');
+  if(p && it.qty !== '') parts.push('stan ' + zl(p*q));
+  return parts.join(' · ');
+}
+function renderReg(){
+  const items = regSorted();
+  const head = `<div class="reg-row reg-th" aria-hidden="true"><span>Materiał</span><span>Kategoria</span><span>Szer., mm</span><span>Wys., mm</span><span>Cena za arkusz</span><span>Arkuszy</span><span>Cena za m², wartość</span><span></span></div>`;
+  $('#reg').innerHTML = items.length ? head + items.map(regRowHTML).join('')
+    : '<p class="reg-empty">Magazyn jest pusty. Dodaj pierwszy materiał.</p>';
+  items.forEach(it => { const o = document.getElementById('rout_' + it.id); if(o) o.textContent = regOut(it); });
+  regSummary();
+}
+function regSummary(){
+  const items = [...REG.values()];
+  const sheets = items.reduce((a, it) => a + pos(it.qty), 0);
+  const value = items.reduce((a, it) => a + pos(it.qty) * pos(it.price), 0);
+  $('#regCnt').textContent = items.length ? String(items.length) : '';
+  $('#regSum').innerHTML = items.length
+    ? `<span>Materiałów: <b>${items.length}</b></span><span>Arkuszy na stanie: <b>${nf(sheets, sheets % 1 ? 1 : 0)}</b></span><span>Wartość magazynu: <b>${zl(value)}</b></span>` : '';
+}
+function addReg(){
+  const id = newId();
+  REG.set(id, cleanItem({cat:'std', created: Date.now()}));
+  queueWrite(id, 0); renderReg();
+  const n = document.getElementById('r_name_' + id); if(n) n.focus();
+}
+function delReg(id){
+  const it = REG.get(id); if(!it) return;
+  if(!confirm('Usunąć „' + (it.name || 'materiał') + '” z magazynu?')) return;
+  P.mats.forEach(m => { if(m.stockId === id){ if(!(pos(m.perSheet) > 0)){ const a = fitCount(pos(it.w), pos(it.h), pos(m.pw), pos(m.ph)); if(a) m.perSheet = String(a); } m.stockId = ''; m.name = it.name; m.cat = it.cat; m.sheet = it.price; } });
+  REG.delete(id); queueWrite(id, 0); renderReg(); renderMats(); save(); update();
+}
+function showView(v){
+  const stock = v === 'stock';
+  if(!stock) flushAll();
+  $('#viewQuote').hidden = stock; $('#viewStock').hidden = !stock;
+  document.body.classList.toggle('v-stock', stock);
+  $('#tabQuote').setAttribute('aria-selected', String(!stock));
+  $('#tabStock').setAttribute('aria-selected', String(stock));
+  if(stock) renderReg(); else { renderMats(); update(); }
+}
+function fitCount(W, H, w, h){
+  if(!(W > 0 && H > 0 && w > 0 && h > 0)) return 0;
+  const mg = S.sheetMargin, g = S.partGap, uw = W - 2*mg, uh = H - 2*mg;
+  const n = (a, b) => (a > uw || b > uh) ? 0 : Math.floor((uw + g) / (a + g)) * Math.floor((uh + g) / (b + g));
+  return Math.max(n(w, h), n(h, w));
+}
+
+const halfUp = x => Math.ceil(x * 2 - 1e-9) / 2;
+const halfRound = x => Math.round(x * 2) / 2;
+const fmtSh = n => nf(n, Math.abs(n % 1) > 1e-9 ? 1 : 0);
+const storeSh = n => String(Math.round(n * 100) / 100).replace('.', ',');
+const shWord = n => n === 1 ? 'arkusz' : (n % 1 || (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14))) ? 'arkusze' : 'arkuszy';
+const persPrice = n => n <= 0 ? 0 : n <= 10 ? S.pers1 : n <= 50 ? S.pers2 : S.pers3;
+const discPct = q => q >= 101 ? S.d4 : q >= 51 ? S.d3 : q >= 26 ? S.d2 : q >= 11 ? S.d1 : 0;
+
+function calc(){
+  const qty = Math.max(1, Math.floor(num(P.qty)) || 1);
+  const wasteF = 1 + S.waste/100, markF = 1 + S.markup/100;
+  const mats = P.mats.map((m,i) => {
+    const cut = parseTime(m.cut), eng = parseTime(m.eng);
+    const minutes = (cut + eng) * qty;
+    const reg = m.stockId ? REG.get(m.stockId) : null;
+    const cat = reg ? reg.cat : m.cat;
+    const rate = cat === 'hard' ? S.rateHard : S.rateStd;
+    const sp = reg ? pos(reg.price) : pos(m.sheet);
+    const sw = reg ? pos(reg.w) : 0, sh = reg ? pos(reg.h) : 0, pw = pos(m.pw), ph = pos(m.ph);
+    const auto = reg ? fitCount(sw, sh, pw, ph) : 0;
+    const typed = pos(m.perSheet);
+    const per = typed > 0 ? typed : auto;
+    const hasSheet = sp > 0 && per > 0;
+    const unit = hasSheet ? sp / per * wasteF * markF : 0;
+    let material = 0, sheets = 0;
+    if(!m.client && hasSheet){ material = unit * qty; sheets = Math.ceil(qty * wasteF / per); }
+    const name = ((reg ? reg.name : m.name) || '').trim() || ('Materiał ' + 'AB'[i]);
+    return {name, cut, eng, minutes, rate, cat, laser: minutes*rate, material, sheets, client: m.client, missingSheet: !m.client && !hasSheet,
+            stockId: m.stockId, reg, lost: !!m.stockId && !reg, sp, sw, sh, auto, typed, per, unit,
+            use: (reg && !m.client && per > 0 && minutes > 0) ? halfUp(qty / per) : 0,
+            tooBig: !!reg && sw > 0 && sh > 0 && pw > 0 && ph > 0 && auto === 0};
+  });
+  const laser = mats.reduce((a,m) => a + m.laser, 0);
+  const laserMin = mats.reduce((a,m) => a + m.minutes, 0);
+  const persN = Math.min(Math.floor(pos(P.pers)), qty);
+  const persUnit = persPrice(persN);
+  const pers = persN * persUnit;
+  const dPct = discPct(qty);
+  const discount = (laser + pers) * dPct / 100;
+
+  const prep = [];
+  if(P.filePrep) prep.push(['Przygotowanie pliku', '', S.prepStd]);
+  if(pos(P.adapt) > 0) prep.push(['Adaptacja projektu', '', pos(P.adapt)]);
+  if(pos(P.designMin) > 0) prep.push(['Projekt indywidualny', fmtMin(pos(P.designMin)) + ', ' + rateTxt(S.designHour) + '/godz.', pos(P.designMin)/60*S.designHour]);
+  if(pos(P.tests) > 0) prep.push(['Próby materiału', Math.floor(pos(P.tests)) + ' × ' + rateTxt(S.testPrice), Math.floor(pos(P.tests))*S.testPrice]);
+
+  mats.forEach(m => { if(m.client) prep.push(['Obsługa materiału powierzonego', m.name, S.clientFee]); });
+  const fin = [];
+  const hand = (mins, label) => { if(mins > 0) fin.push([label, nf(mins, mins%1?1:0) + ' min × ' + qty + ' szt., ' + rateTxt(S.handHour) + '/godz.', qty*mins/60*S.handHour]); };
+  hand(pos(P.sandMin), 'Szlifowanie');
+  const timed = (mins, cost, label, costLbl) => {
+    if(!(mins > 0 || cost > 0)) return;
+    const det = [];
+    if(mins > 0) det.push(nf(mins, mins%1?1:0) + ' min × ' + qty + ' szt., ' + rateTxt(S.handHour) + '/godz.');
+    if(cost > 0) det.push(costLbl + ' ' + rateTxt(cost) + '/szt.');
+    fin.push([label, det.join(' + '), qty*mins/60*S.handHour + qty*cost]);
+  };
+  timed(pos(P.oilMin), pos(P.oilCost), 'Olejowanie lub bejcowanie', 'środki');
+  timed(pos(P.gildMin), pos(P.gildCost), 'Złocenie', 'materiał');
+  hand(pos(P.asmMin), 'Klejenie i montaż');
+  const paintUnit = pos(P.paintPrice) || S.paint;
+  if(P.paint) fin.push(['Malowanie', qty + ' × ' + rateTxt(paintUnit), qty*paintUnit]);
+  if(P.pack) fin.push(['Pakowanie', qty + ' × ' + rateTxt(S.pack), qty*S.pack]);
+
+  const prepSum = prep.reduce((a,x) => a + x[2], 0);
+  const finSum = fin.reduce((a,x) => a + x[2], 0);
+  const material = mats.reduce((a,m) => a + m.material, 0);
+  const labor = laser + pers - discount + prepSum + finSum;
+  const prioPct = P.prio === 'prio' ? S.prio : P.prio === 'express' ? S.express : 0;
+  const prioAmt = labor * prioPct / 100;
+  let net = labor + prioAmt + material;
+  const minAdj = net > 0 && net < S.minOrder ? S.minOrder - net : 0;
+  net += minAdj;
+  const vat = P.vatMode === 'vat' ? net * S.vat / 100 : 0;
+  const gross = net + vat;
+  const laserNet = laser * (1 - dPct/100) * (1 + prioPct/100);
+  const laserHourly = laserMin > 0 ? laserNet / (laserMin/60) : 0;
+  return {qty, mats, laser, laserMin, persN, persUnit, pers, dPct, discount, prep, fin, material, prioPct, prioAmt, minAdj, net, vat, gross,
+          perPiece: gross/qty, laserHourly};
+}
+
+/* ---------- render ---------- */
+function matHTML(m, i){
+  const L = 'AB'[i];
+  const linked = !!m.stockId;
+  const items = regSorted().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pl'));
+  let opts = '<option value="">Wpisz materiał ręcznie</option>';
+  if(linked && !REG.has(m.stockId)) opts += `<option value="${esc(m.stockId)}" selected>${esc(m.name || 'Materiał z magazynu')}</option>`;
+  opts += items.map(it => `<option value="${esc(it.id)}" ${it.id === m.stockId ? 'selected' : ''}>${esc(it.name || 'Bez nazwy')}${pos(it.price) > 0 ? ' · ' + nf(pos(it.price)) + ' zł/ark.' : ''}</option>`).join('');
+  return `<div class="mat${m.client ? ' is-client' : ''}${linked ? ' linked' : ''}" data-idx="${i}">
+    <div class="mat-head">
+      <span class="badge" aria-hidden="true">${L}</span>
+      <label class="sr" for="msel${i}">Materiał ${L}</label>
+      <select id="msel${i}" data-m="${i}.stockId">${opts}</select>
+      ${i > 0 ? `<button type="button" class="link" data-remove="${i}">Usuń</button>` : ''}
+    </div>
+    <p class="mat-info linked-only" id="minfo${i}"></p>
+    ${REG.size ? '' : `<p class="hint manual" style="margin:-6px 0 0">Magazyn jest pusty. <button type="button" class="link inline" data-go="stock">Dodaj materiały</button>, żeby wybierać je z listy.</p>`}
+    <div class="field manual"><label for="mname${i}">Nazwa materiału</label><input id="mname${i}" class="mat-name" data-m="${i}.name" value="${esc(m.name)}" placeholder="np. Akryl 3 mm lustro złote"></div>
+    <div class="seg manual" role="radiogroup" aria-label="Kategoria materiału ${L}">
+      <label><input type="radio" name="cat${i}" data-m="${i}.cat" value="std" ${m.cat==='std'?'checked':''}><span>Standardowy<small>${rateTxt(S.rateStd)}/min</small></span></label>
+      <label><input type="radio" name="cat${i}" data-m="${i}.cat" value="hard" ${m.cat==='hard'?'checked':''}><span>Trudniejszy<small>${rateTxt(S.rateHard)}/min</small></span></label>
+    </div>
+    <div class="row">
+      <div class="field"><label for="cut${i}">Cięcie, min/szt.</label><input id="cut${i}" data-m="${i}.cut" inputmode="decimal" value="${esc(m.cut)}" placeholder="np. 3:30"></div>
+      <div class="field"><label for="eng${i}">Grawerowanie, min/szt.</label><input id="eng${i}" data-m="${i}.eng" inputmode="decimal" value="${esc(m.eng)}" placeholder="np. 6:15"></div>
+    </div>
+    <label class="check"><input type="checkbox" data-m="${i}.client" ${m.client?'checked':''}><span>Materiał powierzony przez klienta<small>+${rateTxt(S.clientFee)} za obsługę, bez kosztu materiału</small></span></label>
+    <div class="row sheet">
+      <div class="field manual"><label for="sheet${i}">Cena arkusza, zł</label><input id="sheet${i}" data-m="${i}.sheet" inputmode="decimal" value="${esc(m.sheet)}" placeholder="np. 38"></div>
+      <div class="field linked-only"><span class="flabel">Wymiar elementu, mm</span><div class="pair"><input id="pw${i}" aria-label="Szerokość elementu ${L} w mm" data-m="${i}.pw" inputmode="decimal" value="${esc(m.pw)}" placeholder="szer."><span aria-hidden="true">×</span><input id="ph${i}" aria-label="Wysokość elementu ${L} w mm" data-m="${i}.ph" inputmode="decimal" value="${esc(m.ph)}" placeholder="wys."></div></div>
+      <div class="field"><label for="per${i}">Sztuk z arkusza</label><input id="per${i}" data-m="${i}.perSheet" inputmode="decimal" value="${esc(m.perSheet)}" placeholder="np. 12"><p class="hint" id="perHint${i}"></p></div>
+    </div>
+    <div class="mat-calc" id="mcalc${i}" aria-live="polite"></div>
+  </div>`;
+}
+function renderMats(){
+  $('#mats').innerHTML = P.mats.map(matHTML).join('');
+  $('#addMat').hidden = P.mats.length >= 2;
+}
+function renderRates(){
+  $('#ratesForm').innerHTML = RATE_SCHEMA.map(([g, items]) => `<div class="rgroup"><h3>${g}</h3><div class="row">${
+    items.map(([k, l, u]) => `<div class="field"><label for="s_${k}">${l}, ${u}</label><input id="s_${k}" data-s="${k}" inputmode="decimal" value="${nf(S[k], S[k]%1?2:0)}"></div>`).join('')
+  }</div></div>`).join('');
+}
+function fillStatic(){
+  document.querySelectorAll('[data-p]').forEach(el => {
+    const k = el.dataset.p;
+    if(el.type === 'checkbox') el.checked = !!P[k];
+    else if(el.type === 'radio') el.checked = P[k] === el.value;
+    else el.value = P[k] ?? '';
+  });
+  document.querySelectorAll('[data-o]').forEach(el => { el.value = P.offer[el.dataset.o] ?? ''; });
+  document.querySelectorAll('[data-f]').forEach(el => { el.value = F[el.dataset.f] ?? ''; });
+}
+function labels(){
+  $('#prepLbl').textContent = rateTxt(S.prepStd);
+  $('#designHint').textContent = rateTxt(S.designHour) + '/godz., czyli ' + rateTxt(S.designHour/60) + '/min';
+  $('#testHint').textContent = rateTxt(S.testPrice) + '/szt.';
+  $('#handHint').textContent = 'Stawka pracy ręcznej: ' + rateTxt(S.handHour) + '/godz., czyli ' + rateTxt(S.handHour/60) + '/min.';
+  $('#paintLbl').textContent = 'cena ustawiana niżej';
+  $('#packLbl').textContent = 'od ' + rateTxt(S.pack) + '/szt.';
+  $('#prioPct').textContent = '+' + nf(S.prio,0) + '%';
+  $('#expPct').textContent = '+' + nf(S.express,0) + '%';
+  $('#vatPct').textContent = nf(S.vat,0) + '%';
+  $('#paintPrice').placeholder = nf(S.paint, 0);
+}
+
+function li(label, det, amt, cls){
+  return `<li class="${cls||''}"><span class="lbl">${esc(label)}${det ? `<span class="det">${esc(det)}</span>` : ''}</span><span class="amt">${amt}</span></li>`;
+}
+
+let last;
+function update(){
+  const r = calc(); last = r;
+  $('#paintRow').hidden = !P.paint;
+
+  const q = r.qty;
+  $('#qtyHint').textContent = q > 250 ? 'Powyżej 250 szt.: wycena indywidualna' :
+    r.dPct ? 'Rabat ilościowy ' + nf(r.dPct,0) + '% na pracę lasera' : 'Rabat od 11 szt.';
+  $('#persHint').textContent = r.persN > 0 ? 'Dopłata ' + rateTxt(r.persUnit) + '/szt. przy ' + r.persN + ' szt.' :
+    'Dopłata: do 10 szt. ' + rateTxt(S.pers1) + ', 11–50 szt. ' + rateTxt(S.pers2) + ', 51–100 szt. ' + rateTxt(S.pers3) + ' za sztukę';
+
+  const L = [];
+  r.mats.forEach(m => {
+    if(m.minutes > 0){
+      const ops = [m.cut ? 'cięcie' : '', m.eng ? 'grawer' : ''].filter(Boolean).join(' + ');
+      L.push(li('Laser: ' + m.name, ops + ', ' + fmtMin(m.minutes) + ' × ' + rateTxt(m.rate) + '/min', zl(m.laser)));
+    }
+  });
+  if(r.pers) L.push(li('Personalizacja', r.persN + ' × ' + rateTxt(r.persUnit), zl(r.pers)));
+  if(r.discount) L.push(li('Rabat ilościowy', nf(r.dPct,0) + '% od pracy lasera', '−' + zl(r.discount), 'minus'));
+  r.prep.forEach(x => L.push(li(x[0], x[1], zl(x[2]))));
+  r.fin.forEach(x => L.push(li(x[0], x[1], zl(x[2]))));
+  r.mats.forEach(m => {
+    if(m.material > 0) L.push(li('Materiał: ' + m.name, m.sheets + ' ark., z zapasem ' + nf(S.waste,0) + '%' + (S.markup ? ', narzut ' + nf(S.markup,0) + '%' : ''), zl(m.material)));
+  });
+  if(r.prioAmt) L.push(li(P.prio === 'express' ? 'Ekspres do 24 h' : 'Realizacja priorytetowa', '+' + nf(r.prioPct,0) + '% od usług', zl(r.prioAmt)));
+  if(r.minAdj) L.push(li('Wyrównanie do minimum', 'minimalna wartość ' + rateTxt(S.minOrder), zl(r.minAdj)));
+  if(!L.length) L.push('<li class="empty">Wpisz czas cięcia lub grawerowania, a wycena pojawi się tutaj.</li>');
+  $('#tLines').innerHTML = L.join('');
+
+  $('#tName').textContent = (P.name||'').trim() || 'Projekt bez nazwy';
+  $('#tName').append(document.createTextNode(', ' + q + ' szt.'));
+  const withVat = P.vatMode === 'vat';
+  $('#tTotalLbl').textContent = withVat ? 'Razem brutto' : 'Razem (zwolniony z VAT)';
+  $('#tTotal').textContent = zl(r.gross);
+  $('#barTotal').textContent = zl(r.gross);
+  $('#tPiece').textContent = zl(r.perPiece);
+  $('#tVatRow').hidden = !withVat;
+  $('#tVatLbl').textContent = 'Netto ' + zl(r.net) + ', VAT ' + nf(S.vat,0) + '%';
+  $('#tVat').textContent = zl(r.vat);
+
+  const W = [];
+  if(q > 250) W.push('Powyżej 250 szt. cennik przewiduje wycenę indywidualną. Kalkulator liczy z rabatem ' + nf(S.d4,0) + '%.');
+  if(r.persN > 100) W.push('Personalizacja powyżej 100 szt.: wycena indywidualna.');
+  r.mats.forEach(m => {
+    if(m.minutes === 0) W.push(m.name + ': brak czasu lasera.');
+    if(m.missingSheet && m.minutes > 0) W.push(m.name + ': brak ceny arkusza lub liczby sztuk z arkusza, wycena nie zawiera materiału.');
+    if(m.client && !(pos(P.tests) > 0)) W.push(m.name + ' jest od klienta. Rozważ próbę materiału przed realizacją.');
+  });
+  const need = {};
+  r.mats.forEach(m => { if(m.use) need[m.stockId] = (need[m.stockId] || 0) + m.use; });
+  if(!P.taken) Object.keys(need).forEach(id => { const it = REG.get(id); if(it && it.qty !== '' && pos(it.qty) < need[id]) W.push((it.name || 'Materiał') + ': potrzeba ' + fmtSh(need[id]) + ' ark., na stanie ' + fmtSh(pos(it.qty)) + '.'); });
+  r.mats.forEach(m => { if(m.lost) W.push(m.name + ': materiału nie ma już w magazynie. Wybierz go ponownie albo wpisz ręcznie.'); });
+  $('#tWarns').innerHTML = W.map(w => `<li>${esc(w)}</li>`).join('');
+
+  r.mats.forEach((m, i) => {
+    const info = document.getElementById('minfo' + i), box = document.getElementById('mcalc' + i);
+    const perIn = document.getElementById('per' + i), perHint = document.getElementById('perHint' + i);
+    if(!box) return;
+    if(info){
+      if(m.reg){
+        const parts = [(m.cat === 'hard' ? 'trudniejszy ' : 'standardowy ') + rateTxt(m.rate) + '/min'];
+        if(m.sw && m.sh) parts.push('arkusz ' + nf(m.sw, 0) + '×' + nf(m.sh, 0) + ' mm');
+        if(m.sp) parts.push(zl(m.sp) + '/ark.');
+        if(m.reg.qty !== '') parts.push('na stanie ' + fmtSh(pos(m.reg.qty)) + ' ark.');
+        info.textContent = parts.join(' · '); info.classList.remove('warn');
+      } else if(m.lost){ info.textContent = 'Tego materiału nie ma już w magazynie.'; info.classList.add('warn'); }
+    }
+    if(perIn) perIn.placeholder = m.auto > 0 ? String(m.auto) : 'np. 12';
+    if(perHint) perHint.textContent = m.auto > 0 ? (m.typed > 0 ? 'Z wymiarów wychodzi ' + m.auto + ' szt.' : 'Wyliczone z wymiarów. Wpisz liczbę, żeby zmienić.') : '';
+    let h = '';
+    if(m.unit > 0){
+      const mods = [];
+      if(S.waste) mods.push('+' + nf(S.waste, 0) + '% zapasu');
+      if(S.markup) mods.push('+' + nf(S.markup, 0) + '% narzutu');
+      h = `Materiał na 1 szt.: <b>${zl(m.unit)}</b><span class="d">${zl(m.sp)} ÷ ${nf(m.per, m.per % 1 ? 1 : 0)} szt. z arkusza${mods.length ? ', ' + mods.join(', ') : ''}. Na ${r.qty} szt.: ${zl(m.material)}.${m.use ? ' Z magazynu zejdzie ' + fmtSh(m.use) + ' ark.' : ''}</span>`;
+      if(!P.taken && m.reg && m.reg.qty !== '' && need[m.stockId] > pos(m.reg.qty)) h += `<span class="w">Na stanie tylko ${fmtSh(pos(m.reg.qty))} ark.</span>`;
+    } else if(m.tooBig){
+      h = `<span class="w">Element nie mieści się na arkuszu ${nf(m.sw,0)}×${nf(m.sh,0)} mm (margines ${nf(S.sheetMargin,0)} mm).</span>`;
+    } else if(m.reg && !m.sp){
+      h = 'Brak ceny arkusza. <button type="button" class="link inline" data-go="stock">Uzupełnij w magazynie</button>.';
+    } else if(m.reg){
+      h = m.sw && m.sh ? 'Podaj wymiar elementu albo liczbę sztuk z arkusza, żeby policzyć materiał na sztukę.' : 'Podaj liczbę sztuk z arkusza albo uzupełnij wymiary arkusza w magazynie.';
+    } else if(!m.lost){
+      h = 'Wpisz cenę arkusza i liczbę sztuk z arkusza albo wybierz materiał z magazynu.';
+    }
+    box.innerHTML = h;
+  });
+
+  renderTaken(r);
+
+  const needAsm = P.mats.length > 1 && !(pos(P.asmMin) > 0);
+  $('#asmNotice').innerHTML = needAsm ? '<p class="notice">Produkt z dwóch materiałów zwykle trzeba skleić lub złożyć. Dodaj czas montażu w sekcji „Obróbka i wykończenie”.</p>' : '';
+
+  const st = [];
+  if(r.laserMin > 0){
+    st.push(`<span>Czas lasera łącznie: <b>${fmtMin(r.laserMin)}</b></span>`);
+    st.push(`<span>Przychód z godziny lasera: <b>${zl(r.laserHourly)}</b></span>`);
+  }
+  if(r.material > 0) st.push(`<span>Udział materiału w cenie netto: <b>${nf(r.material / r.net * 100, 0)}%</b></span>`);
+  $('#stats').innerHTML = st.join('');
+}
+
+/* ---------- events ---------- */
+function onEdit(e){
+  const t = e.target;
+  if(t.type === 'radio' && !t.checked) return;
+  if(t.tagName === 'SELECT' && e.type === 'input') return;
+  const val = t.type === 'checkbox' ? t.checked : t.value;
+  if(t.dataset.r){
+    const dot = t.dataset.r.lastIndexOf('.'), id = t.dataset.r.slice(0, dot), k = t.dataset.r.slice(dot + 1);
+    const it = REG.get(id); if(!it) return;
+    if(it[k] === val) return;
+    it[k] = val; queueWrite(id);
+    const o = document.getElementById('rout_' + id); if(o) o.textContent = regOut(it);
+    if(k === 'name'){ const b = t.closest('.reg-row').querySelector('[data-rdel]'); if(b) b.setAttribute('aria-label', 'Usuń ' + (val || 'materiał')); }
+    regSummary(); update(); return;
+  }
+  if(t.dataset.o){ P.offer[t.dataset.o] = val; save(); return; }
+  if(t.dataset.f){ F[t.dataset.f] = val; save(); return; }
+  if(t.dataset.p){ P[t.dataset.p] = val; }
+  else if(t.dataset.m){
+    const [i, k] = t.dataset.m.split('.');
+    const mt = P.mats[+i];
+    if(k === 'stockId'){
+      mt.stockId = val;
+      const it = REG.get(val);
+      if(it){ mt.name = it.name; mt.cat = it.cat; mt.sheet = it.price; }
+      renderMats(); save(); update();
+      const sel = document.getElementById('msel' + i); if(sel) sel.focus();
+      return;
+    }
+    mt[k] = val;
+    if(k === 'client') t.closest('.mat').classList.toggle('is-client', val);
+  }
+  else if(t.dataset.s){ S[t.dataset.s] = pos(val); if(e.type === 'change') renderMats(); labels(); }
+  else return;
+  save(); update();
+}
+document.addEventListener('input', onEdit);
+document.addEventListener('change', onEdit);
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if(!t) return;
+  if(t.dataset.view){ showView(t.dataset.view); }
+  else if(t.dataset.go){ showView(t.dataset.go); window.scrollTo({top:0}); }
+  else if(t.id === 'addReg'){ addReg(); }
+  else if(t.dataset.rdel){ delReg(t.dataset.rdel); }
+  else if(t.id === 'addMat'){ P.mats.push(newMat('')); renderMats(); save(); update(); const n = $('#mname1'); if(n) n.focus(); }
+  else if(t.dataset.remove){ P.mats.splice(+t.dataset.remove, 1); renderMats(); save(); update(); }
+  else if(t.id === 'reset'){ if(confirm('Wyczyścić bieżącą wycenę? Stawki cennika zostaną bez zmian.')){ P = defP(); fillStatic(); renderMats(); save(); update(); window.scrollTo({top:0}); } }
+  else if(t.id === 'resetRates'){ if(confirm('Przywrócić wszystkie stawki z cennika v2?')){ S = Object.assign({}, DEF_S); renderRates(); renderMats(); labels(); save(); update(); } }
+  else if(t.id === 'copy' || t.id === 'mCopy'){ copyQuote(); }
+  else if(t.id === 'genOffer'){ openOffer(); }
+  else if(t.id === 'takeStock'){ openTake(); }
+  else if(t.id === 'takeOk'){ confirmTake(); }
+  else if(t.id === 'takeCancel'){ closeTake(); }
+  else if(t.id === 'takeUndo'){ undoTake(); }
+  else if(t.id === 'mClose'){ closeOffer(); }
+  else if(t.id === 'pdfBtn'){ savePdf(t); }
+  else if(t.id === 'barBtn'){ $('#tag').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'}); }
+});
+
+function copyQuote(){
+  const r = last; if(!r) return;
+  const lines = [];
+  lines.push('Wycena laser.cat');
+  lines.push('Projekt: ' + ((P.name||'').trim() || 'bez nazwy'));
+  lines.push('Ilość: ' + r.qty + ' szt.');
+  lines.push('');
+  const laserNet = r.laser + r.pers - r.discount;
+  if(laserNet > 0) lines.push('Cięcie i grawerowanie' + (r.pers ? ' z personalizacją' : '') + ': ' + zl(laserNet) + (r.dPct ? ' (po rabacie ' + nf(r.dPct,0) + '%)' : ''));
+  const prep = r.prep.reduce((a,x) => a + x[2], 0); if(prep) lines.push('Przygotowanie i obsługa zlecenia: ' + zl(prep));
+  const fin = r.fin.reduce((a,x) => a + x[2], 0); if(fin) lines.push('Obróbka i wykończenie: ' + zl(fin));
+  if(r.material) lines.push('Materiał: ' + zl(r.material));
+  if(r.prioAmt) lines.push((P.prio === 'express' ? 'Realizacja ekspresowa' : 'Realizacja priorytetowa') + ': ' + zl(r.prioAmt));
+  if(r.minAdj) lines.push('Minimalna wartość zamówienia: ' + zl(S.minOrder));
+  lines.push('');
+  if(P.vatMode === 'vat'){ lines.push('Netto: ' + zl(r.net)); lines.push('VAT ' + nf(S.vat,0) + '%: ' + zl(r.vat)); lines.push('Razem brutto: ' + zl(r.gross)); }
+  else lines.push('Razem: ' + zl(r.gross) + ' (zwolniony z VAT)');
+  lines.push('Cena za sztukę: ' + zl(r.perPiece));
+  lines.push('');
+  if(r.mats.some(m => m.client)) lines.push('Materiał powierzony obrabiamy na ryzyko klienta. Nie odpowiadamy za jego uszkodzenie w trakcie obróbki.');
+  lines.push('Wycena ważna 14 dni. Ostateczny czas pracy lasera potwierdzamy po weryfikacji pliku.');
+  const text = lines.join('\n');
+  const done = () => toast('Skopiowano wycenę');
+  const fallback = () => {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('Nie udało się skopiować. Zaznacz tekst ręcznie.'); }
+    ta.remove();
+  };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
+  }catch(e){ fallback(); }
+}
+/* ---------- oferta ---------- */
+const pad = (n, l=2) => String(n).padStart(l, '0');
+const ymNow = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1); };
+function readCounter(){ try{ const c = JSON.parse(localStorage.getItem(KEY_N) || 'null'); if(c && c.ym === ymNow()) return c.n || 0; }catch(e){} return 0; }
+function fmtNumber(n){ const [y, m] = ymNow().split('-'); return 'OF/' + y + '/' + m + '/' + pad(n, 3); }
+function commitNumber(){
+  const n = readCounter() + 1;
+  if(P.offer.number === fmtNumber(n)){ try{ localStorage.setItem(KEY_N, JSON.stringify({ym: ymNow(), n})); }catch(e){} }
+}
+const dPL = d => d.toLocaleDateString('pl-PL', {day:'2-digit', month:'2-digit', year:'numeric'});
+const trimDot = s => String(s || '').trim().replace(/[.\s]+$/, '');
+const slug = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+
+function offerHTML(r){
+  const today = new Date();
+  const days = Math.max(1, Math.floor(num(P.offer.days)) || 14);
+  const until = new Date(today.getTime() + days * 864e5);
+  const ops = m => [m.cut ? 'cięcie' : '', m.eng ? 'grawerowanie' : ''].filter(Boolean).join(' i ');
+  const rows = [];
+  if(r.laser > 0) rows.push(['Cięcie i grawerowanie laserowe', r.mats.filter(m => m.minutes > 0).map(m => m.name + ': ' + ops(m) + (m.client ? ' (materiał klienta)' : '')).join('; '), r.laser]);
+  if(r.pers) rows.push(['Personalizacja', r.persN + ' szt. z indywidualnym wzorem', r.pers]);
+  if(r.discount) rows.push(['Rabat ilościowy ' + nf(r.dPct,0) + '%', 'od cięcia, grawerowania i personalizacji', -r.discount, 'minus']);
+  r.prep.forEach(x => rows.push([x[0], x[0] === 'Obsługa materiału powierzonego' ? x[1] : x[0] === 'Projekt indywidualny' ? fmtMin(pos(P.designMin)) : '', x[2]]));
+  r.fin.forEach(x => rows.push([x[0], r.qty + ' szt.', x[2]]));
+  r.mats.forEach(m => { if(m.material > 0) rows.push(['Materiał: ' + m.name, '', m.material]); });
+  if(r.prioAmt) rows.push([P.prio === 'express' ? 'Realizacja ekspresowa do 24 h' : 'Realizacja priorytetowa', '', r.prioAmt]);
+  if(r.minAdj) rows.push(['Wyrównanie do minimalnej wartości zamówienia', 'minimum ' + zl(S.minOrder), r.minAdj]);
+
+  const withVat = P.vatMode === 'vat';
+  const sum = withVat
+    ? `<div><span>Netto</span><span class="v">${zl(r.net)}</span></div><div><span>VAT ${nf(S.vat,0)}%</span><span class="v">${zl(r.vat)}</span></div><div class="of-total"><span class="l">Razem brutto</span><span class="v">${zl(r.gross)}</span></div>`
+    : `<div class="of-total"><span class="l">Razem</span><span class="v">${zl(r.gross)}</span></div>`;
+  const cond = [];
+  cond.push('Oferta ważna do ' + dPL(until) + '.');
+  if(trimDot(P.offer.lead)) cond.push('Termin realizacji: ' + trimDot(P.offer.lead) + '.');
+  if(trimDot(P.offer.payment)) cond.push('Płatność: ' + trimDot(P.offer.payment) + '.');
+  if(P.prio === 'prio') cond.push('Zamówienie realizowane priorytetowo, poza kolejką.');
+  if(r.mats.some(m => m.client)) cond.push('Materiał powierzony obrabiamy na ryzyko klienta. Nie odpowiadamy za jego uszkodzenie w trakcie obróbki.');
+  cond.push('Cena dotyczy opisanego projektu. Zmiany w projekcie mogą zmienić wycenę.');
+  if(!withVat && trimDot(F.vatBasis)) cond.push('Sprzedawca zwolniony z VAT na podstawie ' + trimDot(F.vatBasis) + '.');
+
+  const firm = [F.owner, F.address, F.nip ? 'NIP ' + F.nip : ''].filter(x => String(x||'').trim()).map(esc).join('<br>');
+  const contact = [F.phone, F.email, F.www].filter(x => String(x||'').trim()).map(x => `<span>${esc(x)}</span>`).join('');
+  const client = [P.offer.client, P.offer.contact, P.offer.clientInfo].filter(x => String(x||'').trim());
+  const matsList = r.mats.filter(m => m.minutes > 0 || m.material > 0).map(m => `<li>${esc(m.name)}${m.client ? ', materiał klienta' : ''}</li>`).join('');
+
+  return `<div class="of-wrap"><article class="of" lang="pl">
+    <header class="of-head">
+      <div>
+        <p class="of-brand">${esc(trimDot(F.name) || 'laser.cat')}</p>
+        ${firm ? `<p class="of-firm">${firm}</p>` : ''}
+      </div>
+      <div class="of-meta">
+        <p class="of-title">Oferta</p>
+        <dl>
+          <dt>Numer</dt><dd>${esc(P.offer.number)}</dd>
+          <dt>Data</dt><dd>${dPL(today)}</dd>
+          <dt>Ważna do</dt><dd>${dPL(until)}</dd>
+        </dl>
+      </div>
+    </header>
+    <hr class="of-kerf">
+    <div class="of-grid">
+      ${client.length ? `<div><h3>Dla</h3><p>${client.map(esc).join('<br>')}</p></div>` : ''}
+      <div${client.length ? '' : ' style="grid-column:1/-1"'}>
+        <h3>Przedmiot oferty</h3>
+        <p class="of-proj">${esc((P.name||'').trim() || 'Wykonanie laserowe')}, ${r.qty} szt.</p>
+        ${matsList ? `<ul class="of-mats">${matsList}</ul>` : ''}
+        ${String(P.offer.notes||'').trim() ? `<p class="of-notes">${esc(String(P.offer.notes).trim())}</p>` : ''}
+      </div>
+    </div>
+    <hr class="of-kerf">
+    <table class="of-t">
+      <thead><tr><th>Pozycja</th><th>Kwota</th></tr></thead>
+      <tbody>${rows.map(x => `<tr class="${x[3]||''}"><td>${esc(x[0])}${x[1] ? `<span class="d">${esc(x[1])}</span>` : ''}</td><td class="a">${x[2] < 0 ? '−' + zl(-x[2]) : zl(x[2])}</td></tr>`).join('')}</tbody>
+    </table>
+    <div class="of-sum">
+      ${sum}
+      <div><span>Cena za sztukę</span><span class="v">${zl(r.perPiece)}</span></div>
+    </div>
+    <hr class="of-kerf">
+    <h3>Warunki</h3>
+    <ul class="of-cond">${cond.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+    <footer class="of-foot">
+      <span>Dziękujemy za zapytanie. Chętnie odpowiemy na pytania do oferty.</span>
+      ${contact ? `<span style="display:flex;gap:14px;flex-wrap:wrap">${contact}</span>` : ''}
+    </footer>
+  </article></div>`;
+}
+
+let lastFocus;
+function openOffer(){
+  const r = last || calc();
+  if(!(r.gross > 0)){ toast('Najpierw uzupełnij wycenę: czas lasera lub inne pozycje.'); return; }
+  if(!String(P.offer.number||'').trim()){ P.offer.number = fmtNumber(readCounter() + 1); $('#oNum').value = P.offer.number; save(); }
+  $('#ofPreview').innerHTML = offerHTML(r);
+  lastFocus = document.activeElement;
+  $('#modal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#mClose').focus();
+}
+function closeOffer(){
+  $('#modal').hidden = true;
+  document.body.style.overflow = '';
+  if(lastFocus && lastFocus.focus) lastFocus.focus();
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#modal').hidden) closeOffer(); });
+
+let h2pPromise, dlPromise;
+function loadH2P(){
+  if(window.html2pdf) return Promise.resolve();
+  if(!h2pPromise) h2pPromise = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = res; s.onerror = () => { h2pPromise = null; rej(new Error('load')); };
+    document.head.appendChild(s);
+  });
+  return h2pPromise;
+}
+function getDownloads(){
+  if(!dlPromise){
+    try{ dlPromise = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null); }
+    catch(e){ dlPromise = Promise.resolve(null); }
+  }
+  return dlPromise;
+}
+async function savePdf(btn){
+  const dl = await getDownloads();
+  if(!dl){ toast('Pobieranie plików nie działa w tym widoku. Otwórz kalkulator z linku artefaktu.'); return; }
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Tworzę PDF…';
+  try{
+    await loadH2P();
+    if(document.fonts && document.fonts.ready) await document.fonts.ready;
+    const src = $('#ofPreview .of-wrap');
+    const blob = await window.html2pdf().set({
+      margin:[10,0,12,0],
+      image:{type:'jpeg', quality:0.96},
+      html2canvas:{scale:2, backgroundColor:'#FFFDF9', useCORS:true},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'], avoid:['tr','.of-sum','.of-cond li','.of-foot','.of-head']}
+    }).from(src).outputPdf('blob');
+    const name = 'Oferta_' + slug(P.offer.number || 'laser-cat') + (P.offer.client ? '_' + slug(P.offer.client) : '') + '.pdf';
+    const res = await dl.save({filename:name, data:blob});
+    commitNumber();
+    toast(res && res.status === 'delivered' ? 'Przekazano ofertę' : 'Zapisano ofertę PDF');
+  }catch(e){
+    const code = e && e.code;
+    if(code === 'declined') {}
+    else if(code === 'rate_limited') toast('Okno zapisu jest już otwarte. Spróbuj za chwilę.');
+    else if(!window.html2pdf) toast('Nie udało się wczytać generatora PDF. Sprawdź połączenie z internetem.');
+    else toast('Nie udało się utworzyć PDF.');
+  }finally{
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+getDownloads().then(dl => { if(!dl) $('#pdfBtn').hidden = true; });
+
+/* ---------- zdejmowanie z magazynu ---------- */
+function takeList(r){
+  const map = new Map();
+  r.mats.forEach(m => {
+    if(!m.use || !m.reg) return;
+    const e = map.get(m.stockId) || {id: m.stockId, name: m.name, use: 0};
+    e.use += m.use; map.set(m.stockId, e);
+  });
+  return [...map.values()];
+}
+function renderTaken(r){
+  const btn = $('#takeStock'), note = $('#takenNote');
+  if(P.taken && Array.isArray(P.taken.items)){
+    btn.hidden = true; note.hidden = false;
+    const when = new Date(P.taken.at);
+    const list = P.taken.items.map(x => `${esc(x.name)}: ${fmtSh(x.taken)} ark.`).join(', ');
+    note.innerHTML = `<b>Zdjęto z magazynu ${isNaN(when) ? '' : dPLshort(when)}</b><br>${list || 'nic, stan był pusty'}<button type="button" id="takeUndo">Cofnij i przywróć stan</button>`;
+  } else {
+    note.hidden = true; note.innerHTML = '';
+    btn.hidden = takeList(r).length === 0;
+  }
+}
+const dPLshort = d => d.toLocaleDateString('pl-PL', {day:'2-digit', month:'2-digit'}) + ', ' + d.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
+
+let takeFocus;
+function openTake(){
+  const items = takeList(last || calc());
+  if(!items.length){ toast('Wybierz materiał z magazynu i uzupełnij czas lasera.'); return; }
+  $('#takeRows').innerHTML = items.map(x => {
+    const it = REG.get(x.id);
+    const st = it && it.qty !== '' ? pos(it.qty) : null;
+    return `<div class="dlg-row" data-tid="${esc(x.id)}">
+      <div><span class="nm">${esc(x.name)}</span><span class="d" id="tAfter_${esc(x.id)}"></span></div>
+      <div class="field"><label class="sr" for="tAmt_${esc(x.id)}">Arkuszy do zdjęcia: ${esc(x.name)}</label><input id="tAmt_${esc(x.id)}" data-take="${esc(x.id)}" inputmode="decimal" value="${storeSh(x.use)}"></div>
+    </div>`;
+  }).join('');
+  items.forEach(x => takePreview(x.id));
+  takeFocus = document.activeElement;
+  $('#takeDlg').hidden = false;
+  const first = document.querySelector('[data-take]'); if(first){ first.focus(); first.select(); }
+}
+function takePreview(id){
+  const el = document.getElementById('tAfter_' + id), inp = document.getElementById('tAmt_' + id);
+  if(!el || !inp) return;
+  const it = REG.get(id), amt = halfUp(pos(inp.value));
+  if(!it || it.qty === ''){ el.textContent = 'Brak stanu w magazynie, nic nie zostanie zdjęte.'; el.className = 'd w'; return; }
+  const st = pos(it.qty), after = st - amt;
+  el.textContent = 'Stan: ' + fmtSh(st) + ' → ' + fmtSh(Math.max(0, after)) + ' ark.' + (after < 0 ? ' Za mało na stanie.' : '');
+  el.className = after < 0 ? 'd w' : 'd';
+}
+function closeTake(){ $('#takeDlg').hidden = true; if(takeFocus && takeFocus.focus) takeFocus.focus(); }
+function confirmTake(){
+  const items = [];
+  document.querySelectorAll('[data-take]').forEach(inp => {
+    const id = inp.dataset.take, it = REG.get(id);
+    const amt = halfUp(pos(inp.value));
+    if(!it || it.qty === '' || amt <= 0) return;
+    const st = pos(it.qty), taken = Math.min(st, amt);
+    it.qty = storeSh(st - taken);
+    queueWrite(id, 0);
+    items.push({id, name: it.name || 'Materiał', taken});
+  });
+  P.taken = {at: new Date().toISOString(), items};
+  save(); closeTake(); regSummary(); update();
+  if(!$('#viewStock').hidden) renderReg();
+  toast(items.length ? 'Zdjęto materiał z magazynu' : 'Nic nie zdjęto: brak stanu w magazynie');
+}
+function undoTake(){
+  if(!P.taken) return;
+  let missing = 0;
+  (P.taken.items || []).forEach(x => {
+    const it = REG.get(x.id);
+    if(!it){ missing++; return; }
+    it.qty = storeSh(pos(it.qty) + x.taken);
+    queueWrite(x.id, 0);
+  });
+  P.taken = null;
+  save(); regSummary(); update();
+  if(!$('#viewStock').hidden) renderReg();
+  toast(missing ? 'Przywrócono stan. Część materiałów usunięto już z magazynu.' : 'Przywrócono stan magazynu');
+  const b = $('#takeStock'); if(b && !b.hidden) b.focus();
+}
+document.addEventListener('input', e => { if(e.target.dataset && e.target.dataset.take) takePreview(e.target.dataset.take); });
+document.addEventListener('keydown', e => {
+  if($('#takeDlg').hidden) return;
+  if(e.key === 'Escape') closeTake();
+  if(e.key === 'Enter' && e.target.dataset && e.target.dataset.take){ e.preventDefault(); confirmTake(); }
+});
+$('#takeDlg').addEventListener('click', e => { if(e.target.id === 'takeDlg') closeTake(); });
+
+let toastTimer;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2200); }
+
+if('IntersectionObserver' in window){
+  new IntersectionObserver(es => es.forEach(en => $('#bar').classList.toggle('hide', en.isIntersecting)), {threshold:0.15}).observe($('#tag'));
+}
+
+fillStatic(); renderRates(); renderMats(); labels(); update(); regSummary(); initDb();
+})();
+</script>
+</body>
+</html>
